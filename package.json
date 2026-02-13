@@ -1,0 +1,19 @@
+{
+  "name": "stockpicker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "start:server": "cd server && npm start",
+    "start:client": "cd client && npm start",
+    "dev": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "test:unit": "cd server && npm test && cd ../client && npm test -- --watchAll=false",
+    "test:e2e": "cd e2e && npx playwright test",
+    "test:e2e:report": "cd e2e && npx playwright show-report",
+    "test": "npm run test:unit",
+    "build": "npm run test:unit && cd client && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
