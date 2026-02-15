@@ -1,7 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
+const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.resolve(__dirname, 'stocks.db');
+const dbPath = process.env.STOCKPICKER_DB_PATH
+  ? path.resolve(process.env.STOCKPICKER_DB_PATH)
+  : path.resolve(__dirname, 'stocks.db');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = new sqlite3.Database(dbPath);
 
 const initDb = () => {

@@ -1,0 +1,16 @@
+[Unit]
+Description=StockPicker API service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/stockpicker/server
+EnvironmentFile=/etc/stockpicker/backend.env
+ExecStart=/usr/bin/env node src/index.js
+Restart=always
+RestartSec=5
+User=stockpicker
+Group=stockpicker
+
+[Install]
+WantedBy=multi-user.target

@@ -9,9 +9,12 @@
     "dev": "concurrently \"npm run start:server\" \"npm run start:client\"",
     "test:unit": "cd server && npm test && cd ../client && npm test -- --watchAll=false",
     "test:e2e": "cd e2e && npx playwright test",
+    "test:e2e:prod": "cd e2e && PLAYWRIGHT_BASE_URL=https://stockpicker-prod-ks-2026.web.app PLAYWRIGHT_SKIP_WEBSERVER=1 npx playwright test",
     "test:e2e:report": "cd e2e && npx playwright show-report",
     "test": "npm run test:unit",
-    "build": "npm run test:unit && cd client && npm run build"
+    "build": "npm run test:unit && cd client && npm run build",
+    "deploy:prod": "bash scripts/deploy-prod.sh",
+    "smoke:prod": "bash scripts/smoke-prod.sh"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

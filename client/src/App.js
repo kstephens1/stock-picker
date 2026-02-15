@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/+$/, '');
+const apiUrl = (path) => (API_BASE_URL ? `${API_BASE_URL}${path}` : path);
+
 const initialStockForm = {
   sector: '',
   company: '',
@@ -231,20 +234,20 @@ function AppContent() {
   };
 
   const fetchStrategies = async () => {
-    const data = await requestJson('/api/strategies');
+    const data = await requestJson(apiUrl('/api/strategies'));
     setStrategies(data);
     return data;
   };
 
   const fetchStocksForStrategy = async (strategyId) => {
-    const data = await requestJson(`/api/strategies/${strategyId}/stocks`);
+    const data = await requestJson(apiUrl(`/api/strategies/${strategyId}/stocks`));
     setStrategyStocks((prev) => ({ ...prev, [strategyId]: data }));
   };
 
   const fetchAllStrategyStocks = async (strategiesToLoad = strategies) => {
     const pairs = await Promise.all(
       strategiesToLoad.map(async (strategy) => {
-        const stocks = await requestJson(`/api/strategies/${strategy.id}/stocks`);
+        const stocks = await requestJson(apiUrl(`/api/strategies/${strategy.id}/stocks`));
         return [strategy.id, stocks];
       })
     );
@@ -305,14 +308,14 @@ function AppContent() {
 
     try {
       if (editingStockId) {
-        await requestJson(`/api/stocks/${editingStockId}`, {
+        await requestJson(apiUrl(`/api/stocks/${editingStockId}`), {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
         setSuccessMessage('Updated stock successfully.');
         await fetchAllStrategyStocks();
       } else {
-        await requestJson(`/api/strategies/${strategyId}/stocks`, {
+        await requestJson(apiUrl(`/api/strategies/${strategyId}/stocks`), {
           method: 'POST',
           body: JSON.stringify(payload)
         });
@@ -357,7 +360,7 @@ function AppContent() {
     clearMessages();
 
     try {
-      await requestJson(`/api/strategies/${strategyId}/stocks/${stockId}`, { method: 'DELETE' });
+      await requestJson(apiUrl(`/api/strategies/${strategyId}/stocks/${stockId}`), { method: 'DELETE' });
       if (editingStockId === stockId && activeStockFormStrategyId === strategyId) {
         resetStockForm();
       }
@@ -388,13 +391,13 @@ function AppContent() {
 
     try {
       if (editingStrategyId) {
-        await requestJson(`/api/strategies/${editingStrategyId}`, {
+        await requestJson(apiUrl(`/api/strategies/${editingStrategyId}`), {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
         setSuccessMessage('Updated strategy successfully.');
       } else {
-        await requestJson('/api/strategies', {
+        await requestJson(apiUrl('/api/strategies'), {
           method: 'POST',
           body: JSON.stringify(payload)
         });
@@ -421,7 +424,7 @@ function AppContent() {
     clearMessages();
 
     try {
-      await requestJson(`/api/strategies/${id}`, { method: 'DELETE' });
+      await requestJson(apiUrl(`/api/strategies/${id}`), { method: 'DELETE' });
       if (editingStrategyId === id) {
         resetStrategyForm();
       }
@@ -438,7 +441,7 @@ function AppContent() {
     setMeasuring(true);
 
     try {
-      const data = await requestJson('/api/stocks/measure', {
+      const data = await requestJson(apiUrl('/api/stocks/measure'), {
         method: 'POST'
       });
 

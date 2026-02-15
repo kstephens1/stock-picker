@@ -1,6 +1,9 @@
 // @ts-check
 const { defineConfig } = require('@playwright/test');
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+const useLocalWebServer = process.env.PLAYWRIGHT_SKIP_WEBSERVER !== '1';
+
 module.exports = defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -9,20 +12,22 @@ module.exports = defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
     trace: 'on-first-retry',
   },
-  webServer: [
-    {
-      command: 'cd ../server && npm start',
-      port: 4000,
-      reuseExistingServer: !process.env.CI,
-    },
-    {
-      command: 'cd ../client && npm start',
-      port: 3000,
-      reuseExistingServer: !process.env.CI,
-      timeout: 60000,
-    },
-  ],
+  webServer: useLocalWebServer
+    ? [
+      {
+        command: 'cd ../server && npm start',
+        port: 4000,
+        reuseExistingServer: !process.env.CI,
+      },
+      {
+        command: 'cd ../client && npm start',
+        port: 3000,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60000,
+      },
+    ]
+    : undefined,
 });
