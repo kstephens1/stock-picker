@@ -64,6 +64,7 @@ const fetchFromYahoo = (ticker) => {
 
 /**
  * Fetches stock price from Twelve Data API
+ * Note: Uses demo API key for testing. In production, use environment variable.
  * @param {string} ticker - Stock ticker symbol
  * @returns {Promise<{price: number, currency: string}>}
  */
@@ -73,9 +74,12 @@ const fetchFromTwelveData = (ticker) => {
     const symbol = ticker.includes('.') ? ticker.replace('.L', '') : ticker;
     const exchange = 'LSE'; // London Stock Exchange
     
+    // In production, use: process.env.TWELVE_DATA_API_KEY || 'demo'
+    const apiKey = 'demo';
+    
     const options = {
       hostname: 'api.twelvedata.com',
-      path: `/price?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&apikey=demo`,
+      path: `/price?symbol=${encodeURIComponent(symbol)}&exchange=${exchange}&apikey=${apiKey}`,
       method: 'GET'
     };
 

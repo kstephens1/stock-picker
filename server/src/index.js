@@ -159,7 +159,29 @@ app.delete('/api/strategies/:id', (req, res) => {
   });
 });
 
-// Measure Now endpoint - fetches current prices for all stocks
+/**
+ * Measure Now endpoint - fetches current stock prices for all stocks
+ * 
+ * This endpoint retrieves the latest stock prices from Yahoo Finance (with Twelve Data fallback)
+ * for all stocks in the database, then updates their measurePrice, measureDate, and changePercent fields.
+ * 
+ * @route POST /api/stocks/measure
+ * @returns {Object} Response with:
+ *   - message: Summary message of operation
+ *   - updated: Number of stocks successfully updated
+ *   - total: Total number of stocks processed
+ *   - results: Array of successfully updated stocks with their new prices
+ *   - errors: Array of stocks that failed to update (if any)
+ * 
+ * @example
+ * Response: {
+ *   message: "Successfully measured 8 of 10 stocks",
+ *   updated: 8,
+ *   total: 10,
+ *   results: [{ id: 1, ticker: "AAPL", measurePrice: 150.25, changePercent: 2.5, source: "yahoo" }],
+ *   errors: [{ ticker: "INVALID", company: "Bad Stock", error: "No price data available" }]
+ * }
+ */
 app.post('/api/stocks/measure', async (req, res) => {
   try {
     // Get all stocks

@@ -446,7 +446,11 @@ function AppContent() {
       await fetchAllStrategyStocks();
 
       if (data.errors && data.errors.length > 0) {
-        setError(`${data.message}. Some stocks failed: ${data.errors.map(e => e.ticker).join(', ')}`);
+        const failedTickers = data.errors
+          .filter(e => e && e.ticker)
+          .map(e => e.ticker)
+          .join(', ');
+        setError(`${data.message}. Some stocks failed: ${failedTickers || 'unknown'}`);
       } else {
         setSuccessMessage(data.message);
       }
