@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { db, initDb } = require('./db');
+const { fetchStockPrice, convertToGBP } = require('./stockPriceService');
 
 const app = express();
 
@@ -156,6 +157,77 @@ app.delete('/api/strategies/:id', (req, res) => {
       res.json({ message: "Strategy deleted", id: req.params.id });
     });
   });
+});
+
+// Measure Now endpoint - fetches current prices for all stocks
+app.post('/api/stocks/measure', async (req, res) => {
+  try {
+    // Get all stocks
+    const stocks = await new Promise((resolve, reject) => {
+      db.all("SELECT * FROM stocks", [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    if (stocks.length === 0) {
+      return res.json({ message: "No stocks to measure", updated: 0 });
+    }
+
+    const results = [];
+    const errors = [];
+    let successCount = 0;
+
+    // Fetch prices for all stocks
+    for (const stock of stocks) {
+      try {
+        const { price, currency, source } = await fetchStockPrice(stock.ticker);
+        const priceInGBP = await convertToGBP(price, currency);
+        
+        // Calculate change percentage
+        const changePercent = stock.buyPrice 
+          ? ((priceInGBP - stock.buyPrice) / stock.buyPrice * 100).toFixed(2)
+          : 0;
+
+        // Update stock with new measure data
+        await new Promise((resolve, reject) => {
+          const sql = `UPDATE stocks SET measurePrice = ?, measureDate = ?, changePercent = ? WHERE id = ?`;
+          const params = [priceInGBP, new Date().toISOString().split('T')[0], parseFloat(changePercent), stock.id];
+          
+          db.run(sql, params, function(err) {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        successCount++;
+        results.push({
+          id: stock.id,
+          ticker: stock.ticker,
+          company: stock.company,
+          measurePrice: priceInGBP,
+          changePercent: parseFloat(changePercent),
+          source
+        });
+      } catch (err) {
+        errors.push({
+          ticker: stock.ticker,
+          company: stock.company,
+          error: err.message
+        });
+      }
+    }
+
+    res.json({
+      message: `Successfully measured ${successCount} of ${stocks.length} stocks`,
+      updated: successCount,
+      total: stocks.length,
+      results,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 4000;

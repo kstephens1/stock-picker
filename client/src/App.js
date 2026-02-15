@@ -205,6 +205,7 @@ function AppContent() {
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [measuring, setMeasuring] = useState(false);
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -432,6 +433,30 @@ function AppContent() {
     }
   };
 
+  const handleMeasureNow = async () => {
+    clearMessages();
+    setMeasuring(true);
+
+    try {
+      const data = await requestJson('/api/stocks/measure', {
+        method: 'POST'
+      });
+
+      // Refresh all stock data to show updated prices
+      await fetchAllStrategyStocks();
+
+      if (data.errors && data.errors.length > 0) {
+        setError(`${data.message}. Some stocks failed: ${data.errors.map(e => e.ticker).join(', ')}`);
+      } else {
+        setSuccessMessage(data.message);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMeasuring(false);
+    }
+  };
+
   const strategyRows = useMemo(
     () => strategies.map((strategy) => ({
       ...strategy,
@@ -446,7 +471,25 @@ function AppContent() {
 
   const HomePage = () => (
     <>
-      <h2 className="h4 mb-4">Strategies</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="h4 mb-0">Strategies</h2>
+        <button
+          className="btn btn-success"
+          type="button"
+          onClick={handleMeasureNow}
+          disabled={measuring}
+          data-testid="measure-now-button"
+        >
+          {measuring ? (
+            <>
+              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+              Measuring...
+            </>
+          ) : (
+            'Measure Now'
+          )}
+        </button>
+      </div>
 
       {strategyRows.map((strategy) => (
         <div className="card mb-4" key={strategy.id} data-testid={`strategy-table-${strategy.id}`}>
