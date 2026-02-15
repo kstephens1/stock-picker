@@ -476,7 +476,7 @@ function AppContent() {
     errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
 
-  const HomePage = () => (
+  const renderHomePage = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="h4 mb-0">Strategies</h2>
@@ -597,7 +597,7 @@ function AppContent() {
     </>
   );
 
-  const StrategiesPage = () => (
+  const renderStrategiesPage = () => (
     <>
       <h2 className="h4 mb-4">Manage Strategies</h2>
 
@@ -695,8 +695,8 @@ function AppContent() {
           )}
 
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/strategies" element={<StrategiesPage />} />
+            <Route path="/" element={renderHomePage()} />
+            <Route path="/strategies" element={renderStrategiesPage()} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </>

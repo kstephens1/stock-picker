@@ -254,4 +254,31 @@ describe('App routed flows', () => {
       expect(screen.queryByText('Growth plan updated')).not.toBeInTheDocument();
     });
   });
+
+  test('keeps focus while typing multiple characters in forms', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByTestId('show-create-stock-form-1')).toBeInTheDocument());
+    await clickWithAct(user, screen.getByTestId('show-create-stock-form-1'));
+
+    const companyInput = screen.getByLabelText('Company');
+    await user.click(companyInput);
+    await user.type(companyInput, 'ABCD');
+
+    expect(companyInput).toHaveValue('ABCD');
+    expect(companyInput).toHaveFocus();
+
+    await clickWithAct(user, screen.getByRole('link', { name: 'Manage Strategies' }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Manage Strategies' })).toBeInTheDocument();
+    });
+
+    const strategyInput = screen.getByLabelText('Strategy');
+    await user.click(strategyInput);
+    await user.type(strategyInput, 'Growth plan');
+
+    expect(strategyInput).toHaveValue('Growth plan');
+    expect(strategyInput).toHaveFocus();
+  });
 });
