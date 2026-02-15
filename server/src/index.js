@@ -77,22 +77,84 @@ app.get('/api/strategies/:id/stocks', (req, res) => {
 });
 
 app.post('/api/strategies', (req, res) => {
-  const { strategy, stockIds } = req.body;
-  
+  const { strategy } = req.body;
+
   db.run("INSERT INTO strategies (strategy) VALUES (?)", [strategy], function(err) {
     if (err) return res.status(500).json({ error: err.message });
-    const strategyId = this.lastID;
-    
-    if (stockIds && Array.isArray(stockIds)) {
-      const stmt = db.prepare("INSERT INTO strategy_stocks (strategy_id, stock_id) VALUES (?, ?)");
-      stockIds.forEach(stockId => stmt.run([strategyId, stockId]));
-      stmt.finalize((err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(201).json({ id: strategyId, strategy, stockIds });
+    res.status(201).json({ id: this.lastID, strategy });
+  });
+});
+
+app.put('/api/strategies/:id', (req, res) => {
+  const { strategy } = req.body;
+
+  db.run("UPDATE strategies SET strategy = ? WHERE id = ?", [strategy, req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    if (this.changes === 0) return res.status(404).json({ error: "Strategy not found" });
+    res.json({ id: req.params.id, strategy });
+  });
+});
+
+app.post('/api/strategies/:id/stocks', (req, res) => {
+  const strategyId = req.params.id;
+  const { sector, company, ticker, price, criteria, buyPrice, buyDate, measurePrice, measureDate, changePercent } = req.body;
+
+  db.get("SELECT id FROM strategies WHERE id = ?", [strategyId], (strategyErr, strategyRow) => {
+    if (strategyErr) return res.status(500).json({ error: strategyErr.message });
+    if (!strategyRow) return res.status(404).json({ error: "Strategy not found" });
+
+    const sql = `INSERT INTO stocks (sector, company, ticker, price, criteria, buyPrice, buyDate, measurePrice, measureDate, changePercent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const params = [sector, company, ticker, price, criteria, buyPrice, buyDate, measurePrice, measureDate, changePercent];
+
+    db.run(sql, params, function(stockErr) {
+      if (stockErr) return res.status(500).json({ error: stockErr.message });
+
+      const stockId = this.lastID;
+      db.run("INSERT INTO strategy_stocks (strategy_id, stock_id) VALUES (?, ?)", [strategyId, stockId], function(linkErr) {
+        if (linkErr) return res.status(500).json({ error: linkErr.message });
+
+        res.status(201).json({
+          id: stockId,
+          sector,
+          company,
+          ticker,
+          price,
+          criteria,
+          buyPrice,
+          buyDate,
+          measurePrice,
+          measureDate,
+          changePercent
+        });
       });
-    } else {
-      res.status(201).json({ id: strategyId, strategy });
-    }
+    });
+  });
+});
+
+app.delete('/api/strategies/:strategyId/stocks/:stockId', (req, res) => {
+  const { strategyId, stockId } = req.params;
+
+  db.get("SELECT id FROM strategies WHERE id = ?", [strategyId], (strategyErr, strategyRow) => {
+    if (strategyErr) return res.status(500).json({ error: strategyErr.message });
+    if (!strategyRow) return res.status(404).json({ error: "Strategy not found" });
+
+    db.run("DELETE FROM strategy_stocks WHERE strategy_id = ? AND stock_id = ?", [strategyId, stockId], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Stock link not found" });
+      res.json({ message: "Stock removed from strategy", strategyId, stockId });
+    });
+  });
+});
+
+app.delete('/api/strategies/:id', (req, res) => {
+  db.run("DELETE FROM strategy_stocks WHERE strategy_id = ?", [req.params.id], (joinErr) => {
+    if (joinErr) return res.status(500).json({ error: joinErr.message });
+
+    db.run("DELETE FROM strategies WHERE id = ?", [req.params.id], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      if (this.changes === 0) return res.status(404).json({ error: "Strategy not found" });
+      res.json({ message: "Strategy deleted", id: req.params.id });
+    });
   });
 });
 

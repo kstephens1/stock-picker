@@ -2,39 +2,73 @@
 const { test, expect } = require('@playwright/test');
 
 test.describe('StockPicker App', () => {
-  test('should display the page title', async ({ page }) => {
+  test('shows strategy tables on home page', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('h1')).toHaveText('StockPicker');
+    await expect(page.getByRole('heading', { name: 'Strategies' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add New Stock' }).first()).toBeVisible();
   });
 
-  test('should display Stock Picker message and matching timestamp from the microservice', async ({ page }) => {
-    // Set up a listener for the API response
-    const responsePromise = page.waitForResponse('**/api/hello');
-    
-    await page.goto('/');
-    
-    const response = await responsePromise;
-    const responseData = await response.json();
-    const expectedTimestamp = new Date(responseData.timestamp).toLocaleString();
+  test('performs strategy-scoped stock create, edit, and unlink', async ({ page }) => {
+    const unique = Date.now().toString();
+    const companyName = `Playwright Pharma ${unique}`;
+    const updatedCompanyName = `Playwright Pharma Updated ${unique}`;
 
-    const message = page.getByTestId('hello-message');
-    await expect(message).toBeVisible({ timeout: 10000 });
-    await expect(message).toHaveText(responseData.message);
-    
-    const timestampElement = page.getByTestId('timestamp');
-    await expect(timestampElement).toBeVisible();
-    await expect(timestampElement).toContainText(`Last updated: ${expectedTimestamp}`);
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Add New Stock' }).first().click();
+
+    await page.getByLabel('Sector').fill('Healthcare');
+    await page.getByLabel('Company').fill(companyName);
+    await page.getByLabel('Ticker').fill('PWP');
+    await page.getByTestId('stock-price-input').fill('9.91');
+    await page.getByLabel('Buy Price').fill('9.75');
+    await page.getByLabel('Buy Date').fill('2026-02-14');
+    await page.getByLabel('Measure Price').fill('10.12');
+    await page.getByLabel('Measure Date').fill('2026-02-15');
+    await page.getByLabel('Change Percent').fill('2.12');
+    await page.getByLabel('Criteria').fill('Momentum and upgrades');
+    await page.getByRole('button', { name: 'Create Stock' }).click();
+
+    await expect(page.getByRole('status').filter({ hasText: 'Created stock successfully.' })).toBeVisible();
+    const createdRow = page.locator('tr', { hasText: companyName });
+    await expect(createdRow).toBeVisible();
+    await createdRow.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Company').fill(updatedCompanyName);
+    await page.getByRole('button', { name: 'Update Stock' }).click();
+
+    await expect(page.locator('tr', { hasText: updatedCompanyName })).toBeVisible();
+
+    const updatedRow = page.locator('tr', { hasText: updatedCompanyName });
+    await updatedRow.getByRole('button', { name: 'Delete' }).click();
+    await expect(page.locator('tr', { hasText: updatedCompanyName })).toHaveCount(0);
   });
 
-  test('should not show loading spinner after data loads', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('hello-message').waitFor({ state: 'visible' });
-    await expect(page.locator('.spinner-border')).not.toBeVisible();
-  });
+  test('performs strategy create, edit, and delete on subpage', async ({ page }) => {
+    const unique = Date.now().toString();
+    const strategyName = `Playwright strategy ${unique}`;
+    const updatedStrategyName = `Playwright strategy updated ${unique}`;
 
-  test('should use Bootstrap card styling', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.card')).toBeVisible();
-    await expect(page.locator('.card-body')).toBeVisible();
+    await page.getByRole('link', { name: 'Manage Strategies' }).click();
+    await expect(page).toHaveURL(/\/strategies/);
+
+    await page.getByRole('button', { name: 'Create Strategy' }).click();
+    await expect(page.getByText('Strategy text is required.')).toBeVisible();
+    await expect(page.getByTestId('strategy-stock-checkbox-1')).toHaveCount(0);
+
+    await page.getByLabel('Strategy').fill(strategyName);
+    await page.getByRole('button', { name: 'Create Strategy' }).click();
+
+    const strategyRow = page.locator('li', { hasText: strategyName });
+    await expect(strategyRow).toBeVisible();
+    await strategyRow.getByRole('button', { name: 'Edit' }).click();
+    await page.getByLabel('Strategy').fill(updatedStrategyName);
+    await page.getByRole('button', { name: 'Update Strategy' }).click();
+
+    const updatedRow = page.locator('li', { hasText: updatedStrategyName });
+    await expect(updatedRow).toBeVisible();
+    await updatedRow.getByRole('button', { name: 'Delete' }).click();
+    await expect(page.locator('li', { hasText: updatedStrategyName })).toHaveCount(0);
   });
 });

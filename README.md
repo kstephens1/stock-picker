@@ -27,3 +27,11 @@ Run these commands from the root directory:
 ## Development
 
 The frontend is configured with a proxy in [client/package.json](client/package.json) to route `/api/*` requests to the backend at `http://localhost:4000`.
+
+## UI Flow
+
+- `/`: Home page with one table per strategy, showing linked stock rows.
+- Each strategy table includes row-level stock `Edit` and strategy-scoped `Delete` (unlink from this strategy only).
+- Each strategy table has an `Add New Stock` button that opens a full stock form and saves the new stock directly to that strategy.
+- `/strategies`: Strategy management page for strategy text create/edit/delete.
+- New strategies are created without selecting existing stocks via checkboxes.
