@@ -72,11 +72,11 @@ const validateStrategyForm = (form) => {
   return errors;
 };
 
-const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
-  const renderFieldError = (errors, field) => (
-    errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
-  );
+const renderFieldError = (errors, field) => (
+  errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
+);
 
+const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
   return (
     <div className="row g-3">
       <div className="col-md-6">
@@ -470,10 +470,6 @@ function AppContent() {
       stocks: strategyStocks[strategy.id] || []
     })),
     [strategies, strategyStocks]
-  );
-
-  const renderFieldError = (errors, field) => (
-    errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
 
   const HomePage = () => (
