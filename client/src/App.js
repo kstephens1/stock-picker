@@ -72,11 +72,11 @@ const validateStrategyForm = (form) => {
   return errors;
 };
 
-const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
-  const renderFieldError = (errors, field) => (
-    errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
-  );
+const renderFieldError = (errors, field) => (
+  errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
+);
 
+const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
   return (
     <div className="row g-3">
       <div className="col-md-6">
@@ -194,6 +194,220 @@ const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
     </div>
   );
 };
+
+const HomePage = ({ 
+  strategyRows, 
+  measuring, 
+  handleMeasureNow, 
+  activeStockFormStrategyId, 
+  stockForm, 
+  setStockForm, 
+  stockErrors, 
+  editingStockId, 
+  handleStockSubmit, 
+  resetStockForm, 
+  openCreateStockForm, 
+  handleStockEdit, 
+  handleStockRemoveFromStrategy 
+}) => (
+  <>
+    <div className="d-flex justify-content-between align-items-center mb-4">
+      <h2 className="h4 mb-0">Strategies</h2>
+      <button
+        className="btn btn-success"
+        type="button"
+        onClick={handleMeasureNow}
+        disabled={measuring}
+        data-testid="measure-now-button"
+      >
+        {measuring ? (
+          <>
+            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Measuring...
+          </>
+        ) : (
+          'Measure Now'
+        )}
+      </button>
+    </div>
+
+    {strategyRows.map((strategy) => (
+      <div className="card mb-4" key={strategy.id} data-testid={`strategy-table-${strategy.id}`}>
+        <div className="card-body">
+          <h3 className="h5 mb-3">{strategy.strategy}</h3>
+
+          <div className="table-responsive">
+            <table className="table table-striped">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Ticker</th>
+                  <th>Price</th>
+                  <th>Buy Price</th>
+                  <th>Buy Date</th>
+                  <th>Measure Price</th>
+                  <th>Measure Date</th>
+                  <th>Change %</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strategy.stocks.map((stock) => (
+                  <tr key={`${strategy.id}-${stock.id}`} data-testid={`strategy-stock-row-${strategy.id}-${stock.id}`}>
+                    <td>{stock.company}</td>
+                    <td>{stock.ticker}</td>
+                    <td>{stock.price}</td>
+                    <td>{stock.buyPrice}</td>
+                    <td>{stock.buyDate}</td>
+                    <td>{stock.measurePrice}</td>
+                    <td>{stock.measureDate}</td>
+                    <td>{stock.changePercent}</td>
+                    <td>
+                      <div className="d-flex gap-2">
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          type="button"
+                          data-testid={`edit-strategy-stock-${strategy.id}-${stock.id}`}
+                          onClick={() => handleStockEdit(strategy.id, stock)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          type="button"
+                          data-testid={`delete-strategy-stock-${strategy.id}-${stock.id}`}
+                          onClick={() => handleStockRemoveFromStrategy(strategy.id, stock.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {strategy.stocks.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="text-muted text-center py-3">No stocks in this strategy yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {activeStockFormStrategyId === strategy.id ? (
+            <form
+              onSubmit={(event) => handleStockSubmit(event, strategy.id)}
+              data-testid={`strategy-stock-form-${strategy.id}`}
+            >
+              <StockFormFields
+                stockForm={stockForm}
+                setStockForm={setStockForm}
+                stockErrors={stockErrors}
+              />
+              <div className="d-flex gap-2 mt-3">
+                <button className="btn btn-primary" type="submit">
+                  {editingStockId ? 'Update Stock' : 'Create Stock'}
+                </button>
+                <button className="btn btn-outline-secondary" type="button" onClick={resetStockForm}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              className="btn btn-primary"
+              type="button"
+              data-testid={`show-create-stock-form-${strategy.id}`}
+              onClick={() => openCreateStockForm(strategy.id)}
+            >
+              Add New Stock
+            </button>
+          )}
+        </div>
+      </div>
+    ))}
+
+    {strategyRows.length === 0 && <div className="text-muted">No strategies yet.</div>}
+  </>
+);
+
+const StrategiesPage = ({ 
+  strategies, 
+  editingStrategyId, 
+  strategyForm, 
+  setStrategyForm, 
+  strategyErrors, 
+  handleStrategySubmit, 
+  resetStrategyForm, 
+  handleStrategyEdit, 
+  handleStrategyDelete 
+}) => (
+  <>
+    <h2 className="h4 mb-4">Manage Strategies</h2>
+
+    <div className="card">
+      <div className="card-body">
+        <form onSubmit={handleStrategySubmit} data-testid="strategy-form">
+          <div className="mb-3">
+            <label className="form-label" htmlFor="strategy-text">Strategy</label>
+            <textarea
+              id="strategy-text"
+              data-testid="strategy-text-input"
+              className="form-control"
+              rows={3}
+              value={strategyForm.strategy}
+              onChange={(event) => setStrategyForm((prev) => ({ ...prev, strategy: event.target.value }))}
+            />
+            {renderFieldError(strategyErrors, 'strategy')}
+          </div>
+
+          <div className="d-flex gap-2">
+            <button className="btn btn-primary" type="submit">
+              {editingStrategyId ? 'Update Strategy' : 'Create Strategy'}
+            </button>
+            {editingStrategyId && (
+              <button className="btn btn-outline-secondary" type="button" onClick={resetStrategyForm}>
+                Cancel Edit
+              </button>
+            )}
+          </div>
+        </form>
+
+        <ul className="list-group mt-4">
+          {strategies.map((strategy) => (
+            <li
+              className="list-group-item d-flex justify-content-between align-items-start gap-3"
+              key={strategy.id}
+              data-testid={`strategy-row-${strategy.id}`}
+            >
+              <span>{strategy.strategy}</span>
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  type="button"
+                  data-testid={`edit-strategy-${strategy.id}`}
+                  onClick={() => handleStrategyEdit(strategy)}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  type="button"
+                  data-testid={`delete-strategy-${strategy.id}`}
+                  onClick={() => handleStrategyDelete(strategy.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            </li>
+          ))}
+          {strategies.length === 0 && (
+            <li className="list-group-item text-muted text-center">No strategies yet.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  </>
+);
 
 function AppContent() {
   const [strategies, setStrategies] = useState([]);
@@ -472,200 +686,6 @@ function AppContent() {
     [strategies, strategyStocks]
   );
 
-  const renderFieldError = (errors, field) => (
-    errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
-  );
-
-  const HomePage = () => (
-    <>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="h4 mb-0">Strategies</h2>
-        <button
-          className="btn btn-success"
-          type="button"
-          onClick={handleMeasureNow}
-          disabled={measuring}
-          data-testid="measure-now-button"
-        >
-          {measuring ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Measuring...
-            </>
-          ) : (
-            'Measure Now'
-          )}
-        </button>
-      </div>
-
-      {strategyRows.map((strategy) => (
-        <div className="card mb-4" key={strategy.id} data-testid={`strategy-table-${strategy.id}`}>
-          <div className="card-body">
-            <h3 className="h5 mb-3">{strategy.strategy}</h3>
-
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Company</th>
-                    <th>Ticker</th>
-                    <th>Price</th>
-                    <th>Buy Price</th>
-                    <th>Buy Date</th>
-                    <th>Measure Price</th>
-                    <th>Measure Date</th>
-                    <th>Change %</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {strategy.stocks.map((stock) => (
-                    <tr key={`${strategy.id}-${stock.id}`} data-testid={`strategy-stock-row-${strategy.id}-${stock.id}`}>
-                      <td>{stock.company}</td>
-                      <td>{stock.ticker}</td>
-                      <td>{stock.price}</td>
-                      <td>{stock.buyPrice}</td>
-                      <td>{stock.buyDate}</td>
-                      <td>{stock.measurePrice}</td>
-                      <td>{stock.measureDate}</td>
-                      <td>{stock.changePercent}</td>
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            type="button"
-                            data-testid={`edit-strategy-stock-${strategy.id}-${stock.id}`}
-                            onClick={() => handleStockEdit(strategy.id, stock)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            type="button"
-                            data-testid={`delete-strategy-stock-${strategy.id}-${stock.id}`}
-                            onClick={() => handleStockRemoveFromStrategy(strategy.id, stock.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {strategy.stocks.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="text-muted text-center py-3">No stocks in this strategy yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {activeStockFormStrategyId === strategy.id ? (
-              <form
-                onSubmit={(event) => handleStockSubmit(event, strategy.id)}
-                data-testid={`strategy-stock-form-${strategy.id}`}
-              >
-                <StockFormFields
-                  stockForm={stockForm}
-                  setStockForm={setStockForm}
-                  stockErrors={stockErrors}
-                />
-                <div className="d-flex gap-2 mt-3">
-                  <button className="btn btn-primary" type="submit">
-                    {editingStockId ? 'Update Stock' : 'Create Stock'}
-                  </button>
-                  <button className="btn btn-outline-secondary" type="button" onClick={resetStockForm}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <button
-                className="btn btn-primary"
-                type="button"
-                data-testid={`show-create-stock-form-${strategy.id}`}
-                onClick={() => openCreateStockForm(strategy.id)}
-              >
-                Add New Stock
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-
-      {strategyRows.length === 0 && <div className="text-muted">No strategies yet.</div>}
-    </>
-  );
-
-  const StrategiesPage = () => (
-    <>
-      <h2 className="h4 mb-4">Manage Strategies</h2>
-
-      <div className="card">
-        <div className="card-body">
-          <form onSubmit={handleStrategySubmit} data-testid="strategy-form">
-            <div className="mb-3">
-              <label className="form-label" htmlFor="strategy-text">Strategy</label>
-              <textarea
-                id="strategy-text"
-                data-testid="strategy-text-input"
-                className="form-control"
-                rows={3}
-                value={strategyForm.strategy}
-                onChange={(event) => setStrategyForm((prev) => ({ ...prev, strategy: event.target.value }))}
-              />
-              {renderFieldError(strategyErrors, 'strategy')}
-            </div>
-
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary" type="submit">
-                {editingStrategyId ? 'Update Strategy' : 'Create Strategy'}
-              </button>
-              {editingStrategyId && (
-                <button className="btn btn-outline-secondary" type="button" onClick={resetStrategyForm}>
-                  Cancel Edit
-                </button>
-              )}
-            </div>
-          </form>
-
-          <ul className="list-group mt-4">
-            {strategies.map((strategy) => (
-              <li
-                className="list-group-item d-flex justify-content-between align-items-start gap-3"
-                key={strategy.id}
-                data-testid={`strategy-row-${strategy.id}`}
-              >
-                <span>{strategy.strategy}</span>
-                <div className="d-flex gap-2">
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    type="button"
-                    data-testid={`edit-strategy-${strategy.id}`}
-                    onClick={() => handleStrategyEdit(strategy)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn btn-sm btn-outline-danger"
-                    type="button"
-                    data-testid={`delete-strategy-${strategy.id}`}
-                    onClick={() => handleStrategyDelete(strategy.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-            {strategies.length === 0 && (
-              <li className="list-group-item text-muted text-center">No strategies yet.</li>
-            )}
-          </ul>
-        </div>
-      </div>
-    </>
-  );
-
   return (
     <div className="container py-4">
       <h1 className="mb-2">StockPicker</h1>
@@ -695,8 +715,32 @@ function AppContent() {
           )}
 
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/strategies" element={<StrategiesPage />} />
+            <Route path="/" element={<HomePage 
+              strategyRows={strategyRows}
+              measuring={measuring}
+              handleMeasureNow={handleMeasureNow}
+              activeStockFormStrategyId={activeStockFormStrategyId}
+              stockForm={stockForm}
+              setStockForm={setStockForm}
+              stockErrors={stockErrors}
+              editingStockId={editingStockId}
+              handleStockSubmit={handleStockSubmit}
+              resetStockForm={resetStockForm}
+              openCreateStockForm={openCreateStockForm}
+              handleStockEdit={handleStockEdit}
+              handleStockRemoveFromStrategy={handleStockRemoveFromStrategy}
+            />} />
+            <Route path="/strategies" element={<StrategiesPage 
+              strategies={strategies}
+              editingStrategyId={editingStrategyId}
+              strategyForm={strategyForm}
+              setStrategyForm={setStrategyForm}
+              strategyErrors={strategyErrors}
+              handleStrategySubmit={handleStrategySubmit}
+              resetStrategyForm={resetStrategyForm}
+              handleStrategyEdit={handleStrategyEdit}
+              handleStrategyDelete={handleStrategyDelete}
+            />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </>
