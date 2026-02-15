@@ -184,16 +184,21 @@ app.delete('/api/strategies/:id', (req, res) => {
  */
 app.post('/api/stocks/measure', async (req, res) => {
   try {
-    // Get all stocks
+    // Get only stocks currently linked to at least one strategy
     const stocks = await new Promise((resolve, reject) => {
-      db.all("SELECT * FROM stocks", [], (err, rows) => {
+      const sql = `
+        SELECT DISTINCT s.*
+        FROM stocks s
+        INNER JOIN strategy_stocks ss ON ss.stock_id = s.id
+      `;
+      db.all(sql, [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
     });
 
     if (stocks.length === 0) {
-      return res.json({ message: "No stocks to measure", updated: 0 });
+      return res.json({ message: "No strategy-linked stocks to measure", updated: 0, total: 0 });
     }
 
     const results = [];
