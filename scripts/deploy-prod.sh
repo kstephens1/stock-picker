@@ -39,7 +39,12 @@ BACKEND_URL="${BACKEND_URL%/}"
 
 echo "Running unit tests"
 cd "${ROOT_DIR}"
-npm run test:unit
+TEST_DB_PATH="$(mktemp "${TMPDIR:-/tmp}/stockpicker-deploy-testdb.XXXXXX.sqlite" 2>/dev/null || mktemp -t stockpicker-deploy-testdb.sqlite)"
+cleanup_test_db() {
+  rm -f "${TEST_DB_PATH}"
+}
+trap cleanup_test_db EXIT
+STOCKPICKER_DB_PATH="${TEST_DB_PATH}" npm run test:unit
 
 echo "Building frontend"
 cd "${ROOT_DIR}/client"

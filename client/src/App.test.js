@@ -122,6 +122,12 @@ const clearWithAct = async (_user, element) => {
   fireEvent.change(element, { target: { value: '' } });
 };
 
+const loginAsDefaultUser = async (user) => {
+  await user.type(screen.getByLabelText('Username'), 'keith');
+  await user.type(screen.getByLabelText('Password'), 'ferret');
+  await clickWithAct(user, screen.getByRole('button', { name: 'Log On' }));
+};
+
 const fillStockForm = async (user, values) => {
   const setValue = async (label, value) => {
     const input = screen.getByLabelText(label);
@@ -144,6 +150,7 @@ const fillStockForm = async (user, values) => {
 describe('App routed flows', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/');
+    window.localStorage.clear();
     global.fetch = createMockApi();
   });
 
@@ -151,10 +158,14 @@ describe('App routed flows', () => {
     jest.restoreAllMocks();
   });
 
-  test('loads home page with strategy tables', async () => {
+  test('requires login before loading protected pages', async () => {
+    const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Log On' })).toBeInTheDocument();
+    expect(screen.queryByTestId('strategy-table-1')).not.toBeInTheDocument();
+
+    await loginAsDefaultUser(user);
 
     await waitFor(() => {
       expect(screen.getByTestId('strategy-table-1')).toBeInTheDocument();
@@ -166,6 +177,7 @@ describe('App routed flows', () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await loginAsDefaultUser(user);
     await waitFor(() => expect(screen.getByTestId('show-create-stock-form-1')).toBeInTheDocument());
 
     await clickWithAct(user, screen.getByTestId('show-create-stock-form-1'));
@@ -217,6 +229,7 @@ describe('App routed flows', () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await loginAsDefaultUser(user);
     await waitFor(() => expect(screen.getByRole('link', { name: 'Manage Strategies' })).toBeInTheDocument());
     await clickWithAct(user, screen.getByRole('link', { name: 'Manage Strategies' }));
 
@@ -253,5 +266,22 @@ describe('App routed flows', () => {
       expect(screen.getByText('Deleted strategy successfully.')).toBeInTheDocument();
       expect(screen.queryByText('Growth plan updated')).not.toBeInTheDocument();
     });
+  });
+
+  test('keeps focus while typing multiple characters in stock edit form', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await loginAsDefaultUser(user);
+    await waitFor(() => expect(screen.getByTestId('edit-strategy-stock-1-1')).toBeInTheDocument());
+    await clickWithAct(user, screen.getByTestId('edit-strategy-stock-1-1'));
+
+    const companyInput = screen.getByLabelText('Company');
+    await user.click(companyInput);
+    await user.clear(companyInput);
+    await user.type(companyInput, 'Updated Multi Char Name');
+
+    expect(companyInput).toHaveValue('Updated Multi Char Name');
+    expect(companyInput).toHaveFocus();
   });
 });
