@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
+import MD5 from 'crypto-js/md5';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { LOGIN_CONFIG } from './config/auth';
 
 const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL || '').replace(/\/+$/, '');
 const apiUrl = (path) => (API_BASE_URL ? `${API_BASE_URL}${path}` : path);
+const AUTH_STORAGE_KEY = 'stockpicker.authenticated';
 
 const initialStockForm = {
   sector: '',
@@ -195,7 +198,60 @@ const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
   );
 };
 
+const ProtectedRoute = ({ isAuthenticated, children }) => {
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return children;
+};
+
+const LoginPage = ({ username, password, loginError, onUsernameChange, onPasswordChange, onSubmit }) => (
+  <div className="row justify-content-center">
+    <div className="col-md-6 col-lg-5">
+      <div className="card">
+        <div className="card-body">
+          <h2 className="h4 mb-4">Log On</h2>
+          <form onSubmit={onSubmit} data-testid="login-form">
+            <div className="mb-3">
+              <label className="form-label" htmlFor="login-username">Username</label>
+              <input
+                id="login-username"
+                className="form-control"
+                value={username}
+                onChange={onUsernameChange}
+                autoComplete="username"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label" htmlFor="login-password">Password</label>
+              <input
+                id="login-password"
+                type="password"
+                className="form-control"
+                value={password}
+                onChange={onPasswordChange}
+                autoComplete="current-password"
+              />
+            </div>
+            {loginError && (
+              <div className="alert alert-danger" role="alert" data-testid="login-error">
+                {loginError}
+              </div>
+            )}
+            <button className="btn btn-primary" type="submit">Log On</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [strategies, setStrategies] = useState([]);
   const [strategyStocks, setStrategyStocks] = useState({});
   const [stockForm, setStockForm] = useState(initialStockForm);
@@ -209,6 +265,12 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [measuring, setMeasuring] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => window.localStorage.getItem(AUTH_STORAGE_KEY) === 'true'
+  );
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -268,8 +330,45 @@ function AppContent() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
     loadInitialData();
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLoginSubmit = (event) => {
+    event.preventDefault();
+
+    const normalizedUsername = loginUsername.trim();
+    const hashedPassword = MD5(loginPassword).toString();
+
+    const isValidLogin =
+      normalizedUsername === LOGIN_CONFIG.username
+      && hashedPassword === LOGIN_CONFIG.passwordMd5;
+
+    if (!isValidLogin) {
+      setLoginError('Invalid username or password.');
+      return;
+    }
+
+    setLoginError('');
+    setLoginUsername('');
+    setLoginPassword('');
+    setIsAuthenticated(true);
+    window.localStorage.setItem(AUTH_STORAGE_KEY, 'true');
+
+    const redirectPath = location.state?.from?.pathname || '/';
+    navigate(redirectPath, { replace: true });
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    setLoginError('');
+    clearMessages();
+    navigate('/login', { replace: true });
+  };
 
   const clearMessages = () => {
     setError(null);
@@ -476,7 +575,7 @@ function AppContent() {
     errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
 
-  const HomePage = () => (
+  const renderHomePage = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="h4 mb-0">Strategies</h2>
@@ -597,7 +696,7 @@ function AppContent() {
     </>
   );
 
-  const StrategiesPage = () => (
+  const renderStrategiesPage = () => (
     <>
       <h2 className="h4 mb-4">Manage Strategies</h2>
 
@@ -669,10 +768,19 @@ function AppContent() {
   return (
     <div className="container py-4">
       <h1 className="mb-2">StockPicker</h1>
-      <div className="d-flex gap-2 mb-4">
-        <Link className="btn btn-outline-secondary btn-sm" to="/">Home</Link>
-        <Link className="btn btn-outline-secondary btn-sm" to="/strategies">Manage Strategies</Link>
-      </div>
+      {isAuthenticated && (
+        <div className="d-flex gap-2 mb-4">
+          <Link className="btn btn-outline-secondary btn-sm" to="/">Home</Link>
+          <Link className="btn btn-outline-secondary btn-sm" to="/strategies">Manage Strategies</Link>
+          <button
+            className="btn btn-outline-danger btn-sm ms-auto"
+            type="button"
+            onClick={handleLogout}
+          >
+            Log Out
+          </button>
+        </div>
+      )}
 
       {loading && (
         <div className="spinner-border text-primary" role="status">
@@ -695,9 +803,38 @@ function AppContent() {
           )}
 
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/strategies" element={<StrategiesPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route
+              path="/"
+              element={(
+                <ProtectedRoute isAuthenticated={isAuthenticated}>
+                  {renderHomePage()}
+                </ProtectedRoute>
+              )}
+            />
+            <Route
+              path="/strategies"
+              element={(
+                <ProtectedRoute isAuthenticated={isAuthenticated}>
+                  {renderStrategiesPage()}
+                </ProtectedRoute>
+              )}
+            />
+            <Route
+              path="/login"
+              element={isAuthenticated ? (
+                <Navigate to="/" replace />
+              ) : (
+                <LoginPage
+                  username={loginUsername}
+                  password={loginPassword}
+                  loginError={loginError}
+                  onUsernameChange={(event) => setLoginUsername(event.target.value)}
+                  onPasswordChange={(event) => setLoginPassword(event.target.value)}
+                  onSubmit={handleLoginSubmit}
+                />
+              )}
+            />
+            <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
           </Routes>
         </>
       )}

@@ -28,6 +28,15 @@ Run these commands from the root directory:
 
 The frontend is configured with a proxy in [client/package.json](client/package.json) to route `/api/*` requests to the backend at `http://localhost:4000`.
 
+## Authentication
+
+- The frontend now requires logon before accessing app routes.
+- Fixed credentials are:
+	- Username: `keith`
+	- Password: `ferret`
+- Password verification is done against an MD5 hash stored in [client/src/config/auth.js](client/src/config/auth.js).
+- This is intentionally a simple fixed login gate (no user management).
+
 ## Production Deployment (Firebase + Google Compute Engine)
 
 The repository includes an automated production deployment script:
