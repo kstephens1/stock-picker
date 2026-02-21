@@ -75,29 +75,49 @@ const validateStrategyForm = (form) => {
   return errors;
 };
 
+const getChangePercentClassName = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return 'text-muted fw-semibold';
+  }
+
+  const numericValue = Number(value);
+
+  if (numericValue > 0) {
+    return 'text-success fw-semibold';
+  }
+
+  if (numericValue < 0) {
+    return 'text-danger fw-semibold';
+  }
+
+  return 'text-muted fw-semibold';
+};
+
+const formatChangePercentValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : '—';
+};
+
+const calculateAverageChangePercent = (stocks = []) => {
+  const numericChangePercents = stocks
+    .map((stock) => Number(stock.changePercent))
+    .filter((value) => Number.isFinite(value));
+
+  if (numericChangePercents.length === 0) {
+    return null;
+  }
+
+  return numericChangePercents.reduce((sum, value) => sum + value, 0) / numericChangePercents.length;
+};
+
 const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
   const renderFieldError = (errors, field) => (
     errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
-
-  const getChangePercentClassName = (value) => {
-    const numericValue = Number(value);
-
-    if (numericValue > 0) {
-      return 'text-success fw-semibold';
-    }
-
-    if (numericValue < 0) {
-      return 'text-danger fw-semibold';
-    }
-
-    return 'text-muted fw-semibold';
-  };
-
-  const formatChangePercentValue = (value) => {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : '—';
-  };
 
   return (
     <div className="row g-3">
@@ -651,25 +671,6 @@ function AppContent() {
     errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
 
-  const getChangePercentClassName = (value) => {
-    const numericValue = Number(value);
-
-    if (numericValue > 0) {
-      return 'text-success fw-semibold';
-    }
-
-    if (numericValue < 0) {
-      return 'text-danger fw-semibold';
-    }
-
-    return 'text-muted fw-semibold';
-  };
-
-  const formatChangePercentValue = (value) => {
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : '—';
-  };
-
   const formatGraphTimeLabel = (timestamp) => {
     if (!Number.isFinite(timestamp)) {
       return '—';
@@ -791,12 +792,7 @@ function AppContent() {
       </div>
 
       {strategyRows.map((strategy) => {
-          const numericChangePercents = strategy.stocks
-            .map((stock) => Number(stock.changePercent))
-            .filter((value) => Number.isFinite(value));
-          const averageChangePercent = numericChangePercents.length > 0
-            ? (numericChangePercents.reduce((sum, value) => sum + value, 0) / numericChangePercents.length).toFixed(2)
-            : '—';
+          const averageChangePercent = calculateAverageChangePercent(strategy.stocks);
 
           return (
         <div className="card mb-4" key={strategy.id} data-testid={`strategy-table-${strategy.id}`}>

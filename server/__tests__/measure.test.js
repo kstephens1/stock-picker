@@ -3,30 +3,77 @@ const app = require('../src/index');
 const { db, initDb } = require('../src/db');
 const stockPriceService = require('../src/stockPriceService');
 
+const TEST_STRATEGY_NAMES = [
+  'Zero buy price strategy',
+  'Per-strategy average history test',
+  'Strategy chart data test'
+];
+const TEST_TICKERS = ['ZERO', 'SAVG', 'CHRT'];
+
+const runSql = (sql, params = []) => new Promise((resolve, reject) => {
+  db.run(sql, params, (err) => {
+    if (err) reject(err);
+    else resolve();
+  });
+});
+
+const cleanupMeasureTestArtifacts = async () => {
+  const strategyPlaceholders = TEST_STRATEGY_NAMES.map(() => '?').join(', ');
+  const tickerPlaceholders = TEST_TICKERS.map(() => '?').join(', ');
+
+  await runSql(
+    `DELETE FROM strategy_average_change_history
+     WHERE strategy_id IN (
+       SELECT id FROM strategies WHERE strategy IN (${strategyPlaceholders})
+     )`,
+    TEST_STRATEGY_NAMES
+  );
+
+  await runSql(
+    `DELETE FROM stock_measurements
+     WHERE stock_id IN (
+       SELECT id FROM stocks WHERE ticker IN (${tickerPlaceholders})
+     )`,
+    TEST_TICKERS
+  );
+
+  await runSql(
+    `DELETE FROM strategy_stocks
+     WHERE strategy_id IN (
+       SELECT id FROM strategies WHERE strategy IN (${strategyPlaceholders})
+     )`,
+    TEST_STRATEGY_NAMES
+  );
+
+  await runSql(
+    `DELETE FROM strategy_stocks
+     WHERE stock_id IN (
+       SELECT id FROM stocks WHERE ticker IN (${tickerPlaceholders})
+     )`,
+    TEST_TICKERS
+  );
+
+  await runSql(`DELETE FROM stocks WHERE ticker IN (${tickerPlaceholders})`, TEST_TICKERS);
+  await runSql(`DELETE FROM strategies WHERE strategy IN (${strategyPlaceholders})`, TEST_STRATEGY_NAMES);
+};
+
+const resetMeasurementHistoryTables = async () => {
+  await runSql('DELETE FROM stock_measurements');
+  await runSql('DELETE FROM average_change_history');
+  await runSql('DELETE FROM strategy_average_change_history');
+};
+
 beforeAll(async () => {
   await initDb();
 });
 
+beforeEach(async () => {
+  await cleanupMeasureTestArtifacts();
+  await resetMeasurementHistoryTables();
+  jest.restoreAllMocks();
+});
+
 describe('POST /api/stocks/measure', () => {
-  beforeEach(async () => {
-    await new Promise((resolve, reject) => {
-      db.serialize(() => {
-        db.run('DELETE FROM stock_measurements', (stockErr) => {
-          if (stockErr) return reject(stockErr);
-
-          db.run('DELETE FROM average_change_history', (averageErr) => {
-            if (averageErr) return reject(averageErr);
-
-            db.run('DELETE FROM strategy_average_change_history', (strategyAverageErr) => {
-              if (strategyAverageErr) reject(strategyAverageErr);
-              else resolve();
-            });
-          });
-        });
-      });
-    });
-  });
-
   it('should return measure endpoint structure', async () => {
     // Mock the stock price service to avoid external API calls
     jest.spyOn(stockPriceService, 'fetchStockPrice').mockResolvedValue({
@@ -98,6 +145,50 @@ describe('POST /api/stocks/measure', () => {
     const res = await request(app).post('/api/stocks/measure');
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty('message');
+  });
+
+  it('should return 0 changePercent when buyPrice is zero', async () => {
+    const createdStrategy = await request(app)
+      .post('/api/strategies')
+      .send({ strategy: 'Zero buy price strategy' });
+
+    expect(createdStrategy.statusCode).toBe(201);
+
+    const createdStock = await request(app)
+      .post(`/api/strategies/${createdStrategy.body.id}/stocks`)
+      .send({
+        sector: 'Energy',
+        company: 'Zero Buy Co',
+        ticker: 'ZERO',
+        price: 10,
+        criteria: 'Test',
+        buyPrice: 0,
+        buyDate: '2026-02-01',
+        measurePrice: 10,
+        measureDate: '2026-02-01',
+        changePercent: 0
+      });
+
+    expect(createdStock.statusCode).toBe(201);
+
+    jest.spyOn(stockPriceService, 'fetchStockPrice').mockResolvedValue({
+      price: 100.50,
+      currency: 'GBP',
+      source: 'yahoo'
+    });
+
+    jest.spyOn(stockPriceService, 'convertToGBP').mockResolvedValue(100.50);
+
+    const measureRes = await request(app).post('/api/stocks/measure');
+    expect(measureRes.statusCode).toBe(200);
+
+    const measuredZeroBuyStock = measureRes.body.results.find((result) => result.ticker === 'ZERO');
+    expect(measuredZeroBuyStock).toBeDefined();
+    expect(measuredZeroBuyStock.changePercent).toBe(0);
+    expect(Number.isFinite(measuredZeroBuyStock.changePercent)).toBe(true);
+
+    stockPriceService.fetchStockPrice.mockRestore();
+    stockPriceService.convertToGBP.mockRestore();
   });
 });
 

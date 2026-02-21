@@ -82,13 +82,45 @@ app.put('/api/stocks/:id', (req, res) => {
 });
 
 app.delete('/api/stocks/:id', (req, res) => {
-  db.run("DELETE FROM stock_measurements WHERE stock_id = ?", [req.params.id], (measureErr) => {
-    if (measureErr) return res.status(500).json({ error: measureErr.message });
+  const stockId = req.params.id;
 
-    db.run("DELETE FROM stocks WHERE id = ?", [req.params.id], function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: "Stock not found" });
-      res.json({ message: "Stock deleted", id: req.params.id });
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION', (beginErr) => {
+      if (beginErr) {
+        return res.status(500).json({ error: beginErr.message });
+      }
+
+      db.run('DELETE FROM stock_measurements WHERE stock_id = ?', [stockId], (measureErr) => {
+        if (measureErr) {
+          return db.run('ROLLBACK', () => {
+            res.status(500).json({ error: measureErr.message });
+          });
+        }
+
+        db.run('DELETE FROM stocks WHERE id = ?', [stockId], function (err) {
+          if (err) {
+            return db.run('ROLLBACK', () => {
+              res.status(500).json({ error: err.message });
+            });
+          }
+
+          if (this.changes === 0) {
+            return db.run('ROLLBACK', () => {
+              res.status(404).json({ error: 'Stock not found' });
+            });
+          }
+
+          db.run('COMMIT', (commitErr) => {
+            if (commitErr) {
+              return db.run('ROLLBACK', () => {
+                res.status(500).json({ error: commitErr.message });
+              });
+            }
+
+            res.json({ message: 'Stock deleted', id: stockId });
+          });
+        });
+      });
     });
   });
 });
@@ -272,16 +304,52 @@ app.delete('/api/strategies/:strategyId/stocks/:stockId', (req, res) => {
 });
 
 app.delete('/api/strategies/:id', (req, res) => {
-  db.run("DELETE FROM strategy_stocks WHERE strategy_id = ?", [req.params.id], (joinErr) => {
-    if (joinErr) return res.status(500).json({ error: joinErr.message });
+  const strategyId = req.params.id;
 
-    db.run("DELETE FROM strategy_average_change_history WHERE strategy_id = ?", [req.params.id], (historyErr) => {
-      if (historyErr) return res.status(500).json({ error: historyErr.message });
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION', (beginErr) => {
+      if (beginErr) {
+        return res.status(500).json({ error: beginErr.message });
+      }
 
-      db.run("DELETE FROM strategies WHERE id = ?", [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: "Strategy not found" });
-        res.json({ message: "Strategy deleted", id: req.params.id });
+      db.run('DELETE FROM strategy_stocks WHERE strategy_id = ?', [strategyId], (joinErr) => {
+        if (joinErr) {
+          return db.run('ROLLBACK', () => {
+            res.status(500).json({ error: joinErr.message });
+          });
+        }
+
+        db.run('DELETE FROM strategy_average_change_history WHERE strategy_id = ?', [strategyId], (historyErr) => {
+          if (historyErr) {
+            return db.run('ROLLBACK', () => {
+              res.status(500).json({ error: historyErr.message });
+            });
+          }
+
+          db.run('DELETE FROM strategies WHERE id = ?', [strategyId], function (err) {
+            if (err) {
+              return db.run('ROLLBACK', () => {
+                res.status(500).json({ error: err.message });
+              });
+            }
+
+            if (this.changes === 0) {
+              return db.run('ROLLBACK', () => {
+                res.status(404).json({ error: 'Strategy not found' });
+              });
+            }
+
+            db.run('COMMIT', (commitErr) => {
+              if (commitErr) {
+                return db.run('ROLLBACK', () => {
+                  res.status(500).json({ error: commitErr.message });
+                });
+              }
+
+              res.json({ message: 'Strategy deleted', id: strategyId });
+            });
+          });
+        });
       });
     });
   });
@@ -348,24 +416,47 @@ app.post('/api/stocks/measure', async (req, res) => {
     const successfulChangesByStockId = new Map();
     let successCount = 0;
 
-    // Fetch prices for all stocks
-    for (const stock of stocks) {
+    const measurementCandidates = await Promise.all(
+      stocks.map(async (stock) => {
+        try {
+          const { price, currency, source } = await stockPriceService.fetchStockPrice(stock.ticker);
+          const priceInGBP = await stockPriceService.convertToGBP(price, currency);
+          const buyPrice = Number(stock.buyPrice);
+          const hasValidBuyPrice = Number.isFinite(buyPrice) && buyPrice !== 0;
+          const changePercent = hasValidBuyPrice
+            ? ((priceInGBP - buyPrice) / buyPrice * 100).toFixed(2)
+            : 0;
+
+          return {
+            stock,
+            source,
+            priceInGBP,
+            parsedChangePercent: parseFloat(changePercent)
+          };
+        } catch (err) {
+          return {
+            stock,
+            error: err
+          };
+        }
+      })
+    );
+
+    for (const candidate of measurementCandidates) {
+      if (candidate.error) {
+        errors.push({
+          ticker: candidate.stock.ticker,
+          company: candidate.stock.company,
+          error: candidate.error.message
+        });
+        continue;
+      }
+
       try {
-        const { price, currency, source } = await stockPriceService.fetchStockPrice(stock.ticker);
-        const priceInGBP = await stockPriceService.convertToGBP(price, currency);
-        
-        // Calculate change percentage
-        const changePercent = stock.buyPrice 
-          ? ((priceInGBP - stock.buyPrice) / stock.buyPrice * 100).toFixed(2)
-          : 0;
-
-        // Update stock with new measure data
-        const parsedChangePercent = parseFloat(changePercent);
-
         await new Promise((resolve, reject) => {
           const sql = `UPDATE stocks SET measurePrice = ?, measureDate = ?, changePercent = ? WHERE id = ?`;
-          const params = [priceInGBP, measuredDate, parsedChangePercent, stock.id];
-          
+          const params = [candidate.priceInGBP, measuredDate, candidate.parsedChangePercent, candidate.stock.id];
+
           db.run(sql, params, function(err) {
             if (err) reject(err);
             else resolve();
@@ -374,7 +465,7 @@ app.post('/api/stocks/measure', async (req, res) => {
 
         await new Promise((resolve, reject) => {
           const sql = `INSERT INTO stock_measurements (stock_id, measurePrice, measureDate, changePercent, source) VALUES (?, ?, ?, ?, ?)`;
-          const params = [stock.id, priceInGBP, measuredDate, parsedChangePercent, source];
+          const params = [candidate.stock.id, candidate.priceInGBP, measuredDate, candidate.parsedChangePercent, candidate.source];
 
           db.run(sql, params, function(err) {
             if (err) reject(err);
@@ -383,20 +474,20 @@ app.post('/api/stocks/measure', async (req, res) => {
         });
 
         successCount++;
-        successfulChangePercents.push(parsedChangePercent);
-        successfulChangesByStockId.set(stock.id, parsedChangePercent);
+        successfulChangePercents.push(candidate.parsedChangePercent);
+        successfulChangesByStockId.set(candidate.stock.id, candidate.parsedChangePercent);
         results.push({
-          id: stock.id,
-          ticker: stock.ticker,
-          company: stock.company,
-          measurePrice: priceInGBP,
-          changePercent: parsedChangePercent,
-          source
+          id: candidate.stock.id,
+          ticker: candidate.stock.ticker,
+          company: candidate.stock.company,
+          measurePrice: candidate.priceInGBP,
+          changePercent: candidate.parsedChangePercent,
+          source: candidate.source
         });
       } catch (err) {
         errors.push({
-          ticker: stock.ticker,
-          company: stock.company,
+          ticker: candidate.stock.ticker,
+          company: candidate.stock.company,
           error: err.message
         });
       }
@@ -406,7 +497,7 @@ app.post('/api/stocks/measure', async (req, res) => {
       const averageChangePercent = parseFloat((
         successfulChangePercents.reduce((sum, value) => sum + value, 0) / successfulChangePercents.length
       ).toFixed(2));
-      const measuredDate = new Date().toISOString().split('T')[0];
+
 
       await new Promise((resolve, reject) => {
         const sql = `INSERT INTO average_change_history (measureDate, averageChangePercent, stockCount) VALUES (?, ?, ?)`;
