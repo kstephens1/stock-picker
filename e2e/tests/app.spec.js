@@ -1,12 +1,23 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+const ensureAuthenticated = async (page) => {
+  if (await page.getByRole('heading', { name: 'Log On' }).isVisible()) {
+    await page.getByLabel('Username').fill('keith');
+    await page.getByLabel('Password').fill('ferret');
+    await page.getByRole('button', { name: 'Log On' }).click();
+  }
+
+  await expect(page.getByRole('heading', { name: 'Strategies' })).toBeVisible();
+};
+
 test.describe('StockPicker App', () => {
   test('shows strategy tables on home page', async ({ page }) => {
     await page.goto('/');
+    await ensureAuthenticated(page);
     await expect(page.locator('h1')).toHaveText('StockPicker');
-    await expect(page.getByRole('heading', { name: 'Strategies' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add New Stock' }).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="strategy-average-row-"]').first()).toBeVisible();
   });
 
   test('performs strategy-scoped stock create, edit, and unlink', async ({ page }) => {
@@ -15,6 +26,7 @@ test.describe('StockPicker App', () => {
     const updatedCompanyName = `Playwright Pharma Updated ${unique}`;
 
     await page.goto('/');
+    await ensureAuthenticated(page);
 
     await page.getByRole('button', { name: 'Add New Stock' }).first().click();
 
@@ -50,6 +62,7 @@ test.describe('StockPicker App', () => {
     const updatedStrategyName = `Playwright strategy updated ${unique}`;
 
     await page.goto('/');
+    await ensureAuthenticated(page);
     await page.getByRole('link', { name: 'Manage Strategies' }).click();
     await expect(page).toHaveURL(/\/strategies/);
 

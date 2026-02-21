@@ -80,6 +80,25 @@ const StockFormFields = ({ stockForm, setStockForm, stockErrors }) => {
     errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
 
+  const getChangePercentClassName = (value) => {
+    const numericValue = Number(value);
+
+    if (numericValue > 0) {
+      return 'text-success fw-semibold';
+    }
+
+    if (numericValue < 0) {
+      return 'text-danger fw-semibold';
+    }
+
+    return 'text-muted fw-semibold';
+  };
+
+  const formatChangePercentValue = (value) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : '—';
+  };
+
   return (
     <div className="row g-3">
       <div className="col-md-6">
@@ -271,6 +290,12 @@ function AppContent() {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [activeGraphStock, setActiveGraphStock] = useState(null);
+  const [activeGraphStrategy, setActiveGraphStrategy] = useState(null);
+  const [graphHistory, setGraphHistory] = useState([]);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState('');
+  const [hoveredGraphPoint, setHoveredGraphPoint] = useState(null);
 
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -470,6 +495,57 @@ function AppContent() {
     }
   };
 
+  const closeGraphModal = () => {
+    setActiveGraphStock(null);
+    setActiveGraphStrategy(null);
+    setGraphHistory([]);
+    setGraphError('');
+    setGraphLoading(false);
+    setHoveredGraphPoint(null);
+  };
+
+  const handleStockGraphOpen = async (stock) => {
+    setActiveGraphStock(stock);
+    setActiveGraphStrategy(null);
+    setGraphHistory([]);
+    setGraphError('');
+    setGraphLoading(true);
+    setHoveredGraphPoint(null);
+
+    try {
+      const history = await requestJson(apiUrl(`/api/stocks/${stock.id}/measurements`));
+      setGraphHistory(Array.isArray(history) ? history : []);
+    } catch (err) {
+      setGraphError(err.message || 'Failed to load graph data.');
+    } finally {
+      setGraphLoading(false);
+    }
+  };
+
+  const handleStrategyAverageGraphOpen = async (strategy) => {
+    setActiveGraphStock(null);
+    setActiveGraphStrategy(strategy);
+    setGraphHistory([]);
+    setGraphError('');
+    setGraphLoading(true);
+    setHoveredGraphPoint(null);
+
+    try {
+      const history = await requestJson(apiUrl(`/api/strategies/${strategy.id}/measurements/average-change`));
+      const mappedHistory = Array.isArray(history)
+        ? history.map((entry) => ({
+          ...entry,
+          changePercent: entry.averageChangePercent
+        }))
+        : [];
+      setGraphHistory(mappedHistory);
+    } catch (err) {
+      setGraphError(err.message || 'Failed to load graph data.');
+    } finally {
+      setGraphLoading(false);
+    }
+  };
+
   const resetStrategyForm = () => {
     setEditingStrategyId(null);
     setStrategyForm(initialStrategyForm);
@@ -575,6 +651,123 @@ function AppContent() {
     errors[field] ? <div className="text-danger small">{errors[field]}</div> : null
   );
 
+  const getChangePercentClassName = (value) => {
+    const numericValue = Number(value);
+
+    if (numericValue > 0) {
+      return 'text-success fw-semibold';
+    }
+
+    if (numericValue < 0) {
+      return 'text-danger fw-semibold';
+    }
+
+    return 'text-muted fw-semibold';
+  };
+
+  const formatChangePercentValue = (value) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? `${numericValue.toFixed(2)}%` : '—';
+  };
+
+  const formatGraphTimeLabel = (timestamp) => {
+    if (!Number.isFinite(timestamp)) {
+      return '—';
+    }
+
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const graphChartData = useMemo(() => {
+    const parsedHistory = graphHistory
+      .map((entry) => ({
+        ...entry,
+        changePercent: Number(entry.changePercent),
+        timestamp: new Date(entry.createdAt || entry.measureDate).getTime()
+      }))
+      .filter((entry) => Number.isFinite(entry.changePercent) && Number.isFinite(entry.timestamp));
+
+    const chartHistory = [...parsedHistory];
+    if (activeGraphStock?.buyDate) {
+      chartHistory.push({
+        measureDate: activeGraphStock.buyDate,
+        timestamp: new Date(activeGraphStock.buyDate).getTime(),
+        changePercent: 0,
+        isBuyBaseline: true
+      });
+    }
+
+    chartHistory.sort((left, right) => left.timestamp - right.timestamp);
+
+    if (chartHistory.length === 0) {
+      return null;
+    }
+
+    const width = 1000;
+    const height = 340;
+    const paddingTop = 30;
+    const paddingBottom = 30;
+    const paddingLeft = 80;
+    const paddingRight = 30;
+    const values = chartHistory.map((entry) => entry.changePercent);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const range = maxValue - minValue || 1;
+    const innerHeight = height - paddingTop - paddingBottom;
+    const innerWidth = width - paddingLeft - paddingRight;
+    const minTimestamp = Math.min(...chartHistory.map((entry) => entry.timestamp));
+    const maxTimestamp = Math.max(...chartHistory.map((entry) => entry.timestamp));
+    const timestampRange = maxTimestamp - minTimestamp || 1;
+
+    const points = chartHistory.map((entry) => {
+      const x = paddingLeft + ((entry.timestamp - minTimestamp) / timestampRange) * innerWidth;
+      const y = paddingTop + (1 - ((entry.changePercent - minValue) / range)) * innerHeight;
+
+      return {
+        x,
+        y,
+        measureDate: entry.measureDate,
+        timestamp: entry.timestamp,
+        timeLabel: formatGraphTimeLabel(entry.timestamp),
+        changePercent: entry.changePercent,
+        isBuyBaseline: Boolean(entry.isBuyBaseline)
+      };
+    });
+
+    return {
+      width,
+      height,
+      paddingTop,
+      paddingBottom,
+      paddingLeft,
+      paddingRight,
+      points,
+      polylinePoints: points.map((point) => `${point.x},${point.y}`).join(' '),
+      firstDate: formatGraphTimeLabel(minTimestamp),
+      lastDate: formatGraphTimeLabel(maxTimestamp),
+      minChangePercent: minValue,
+      maxChangePercent: maxValue,
+      midChangePercent: (minValue + maxValue) / 2
+    };
+  }, [activeGraphStock, graphHistory]);
+
+  const activeGraphChangePercent = useMemo(() => {
+    if (activeGraphStock) {
+      const parsed = Number(activeGraphStock.changePercent);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    if (activeGraphStrategy) {
+      const numericHistory = graphHistory
+        .map((entry) => Number(entry.changePercent))
+        .filter((value) => Number.isFinite(value));
+
+      return numericHistory.length > 0 ? numericHistory[numericHistory.length - 1] : null;
+    }
+
+    return null;
+  }, [activeGraphStock, activeGraphStrategy, graphHistory]);
+
   const renderHomePage = () => (
     <>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -597,7 +790,15 @@ function AppContent() {
         </button>
       </div>
 
-      {strategyRows.map((strategy) => (
+      {strategyRows.map((strategy) => {
+          const numericChangePercents = strategy.stocks
+            .map((stock) => Number(stock.changePercent))
+            .filter((value) => Number.isFinite(value));
+          const averageChangePercent = numericChangePercents.length > 0
+            ? (numericChangePercents.reduce((sum, value) => sum + value, 0) / numericChangePercents.length).toFixed(2)
+            : '—';
+
+          return (
         <div className="card mb-4" key={strategy.id} data-testid={`strategy-table-${strategy.id}`}>
           <div className="card-body">
             <h3 className="h5 mb-3">{strategy.strategy}</h3>
@@ -613,7 +814,7 @@ function AppContent() {
                     <th>Buy Date</th>
                     <th>Measure Price</th>
                     <th>Measure Date</th>
-                    <th>Change %</th>
+                    <th>% Change</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -627,7 +828,9 @@ function AppContent() {
                       <td>{stock.buyDate}</td>
                       <td>{stock.measurePrice}</td>
                       <td>{stock.measureDate}</td>
-                      <td>{stock.changePercent}</td>
+                      <td className={getChangePercentClassName(stock.changePercent)}>
+                        {formatChangePercentValue(stock.changePercent)}
+                      </td>
                       <td>
                         <div className="d-flex gap-2">
                           <button
@@ -646,6 +849,15 @@ function AppContent() {
                           >
                             Delete
                           </button>
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            type="button"
+                            data-testid={`show-stock-graph-${strategy.id}-${stock.id}`}
+                            aria-label={`Show graph for ${stock.company}`}
+                            onClick={() => handleStockGraphOpen(stock)}
+                          >
+                            📈
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -655,6 +867,32 @@ function AppContent() {
                       <td colSpan={9} className="text-muted text-center py-3">No stocks in this strategy yet.</td>
                     </tr>
                   )}
+                  <tr data-testid={`strategy-average-row-${strategy.id}`}>
+                    <td className="fw-semibold">Average</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td
+                      className={getChangePercentClassName(averageChangePercent)}
+                      data-testid={`strategy-average-change-percent-${strategy.id}`}
+                    >
+                      {formatChangePercentValue(averageChangePercent)}
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        type="button"
+                        data-testid={`show-strategy-average-graph-${strategy.id}`}
+                        aria-label={`Show average graph for strategy ${strategy.id}`}
+                        onClick={() => handleStrategyAverageGraphOpen(strategy)}
+                      >
+                        📈
+                      </button>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -690,7 +928,8 @@ function AppContent() {
             )}
           </div>
         </div>
-      ))}
+          );
+      })}
 
       {strategyRows.length === 0 && <div className="text-muted">No strategies yet.</div>}
     </>
@@ -836,6 +1075,202 @@ function AppContent() {
             />
             <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
           </Routes>
+
+          {(activeGraphStock || activeGraphStrategy) && (
+            <div
+              className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 1050 }}
+              data-testid="stock-graph-modal-overlay"
+            >
+              <div
+                className="bg-white rounded shadow d-flex flex-column p-3"
+                style={{ width: '70vw', height: '70vh' }}
+                data-testid="stock-graph-modal"
+              >
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <h3 className="h5 mb-1">
+                      {activeGraphStock
+                        ? `${activeGraphStock.company} (${activeGraphStock.ticker})`
+                        : `${activeGraphStrategy.strategy} (Average)`}
+                      {activeGraphChangePercent !== null && (
+                        <span
+                          className={`ms-2 fs-6 fw-semibold ${
+                            activeGraphChangePercent > 0
+                              ? 'text-success'
+                              : activeGraphChangePercent < 0
+                                ? 'text-danger'
+                                : 'text-muted'
+                          }`}
+                        >
+                          {`${activeGraphChangePercent > 0 ? '+' : ''}${activeGraphChangePercent.toFixed(2)}%`}
+                        </span>
+                      )}
+                    </h3>
+                    <div className="text-muted small">
+                      {activeGraphStock ? 'Stock growth over time' : 'Average growth over time'}
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    type="button"
+                    onClick={closeGraphModal}
+                    data-testid="close-stock-graph-modal"
+                    aria-label="Close graph popup"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {graphLoading && (
+                  <div className="d-flex flex-grow-1 align-items-center justify-content-center">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                )}
+
+                {!graphLoading && graphError && (
+                  <div className="alert alert-danger mb-0" role="alert" data-testid="stock-graph-error">
+                    {graphError}
+                  </div>
+                )}
+
+                {!graphLoading && !graphError && !graphChartData && (
+                  <div className="text-muted d-flex flex-grow-1 align-items-center justify-content-center">
+                    No measurement history available.
+                  </div>
+                )}
+
+                {!graphLoading && !graphError && graphChartData && (
+                  <div className="d-flex flex-column flex-grow-1 border rounded p-3">
+                    <div className="small text-muted mb-2">Change %</div>
+                    <div className="flex-grow-1">
+                      <svg
+                        viewBox="0 0 1000 340"
+                        className="w-100 h-100"
+                        preserveAspectRatio="none"
+                        data-testid="stock-growth-graph"
+                        onClick={() => setHoveredGraphPoint(null)}
+                      >
+                        <line
+                          x1={graphChartData.paddingLeft}
+                          y1={graphChartData.paddingTop}
+                          x2={graphChartData.paddingLeft}
+                          y2={graphChartData.height - graphChartData.paddingBottom}
+                          stroke="#6c757d"
+                          strokeWidth="1"
+                        />
+                        <line
+                          x1={graphChartData.paddingLeft}
+                          y1={graphChartData.paddingTop}
+                          x2={graphChartData.width - graphChartData.paddingRight}
+                          y2={graphChartData.paddingTop}
+                          stroke="#e9ecef"
+                          strokeWidth="1"
+                        />
+                        <line
+                          x1={graphChartData.paddingLeft}
+                          y1={(graphChartData.paddingTop + (graphChartData.height - graphChartData.paddingBottom)) / 2}
+                          x2={graphChartData.width - graphChartData.paddingRight}
+                          y2={(graphChartData.paddingTop + (graphChartData.height - graphChartData.paddingBottom)) / 2}
+                          stroke="#e9ecef"
+                          strokeWidth="1"
+                        />
+                        <line
+                          x1={graphChartData.paddingLeft}
+                          y1={graphChartData.height - graphChartData.paddingBottom}
+                          x2={graphChartData.width - graphChartData.paddingRight}
+                          y2={graphChartData.height - graphChartData.paddingBottom}
+                          stroke="#e9ecef"
+                          strokeWidth="1"
+                        />
+                        <text x={12} y={graphChartData.paddingTop + 4} fontSize="14" fill="#6c757d">
+                          {`${graphChartData.maxChangePercent.toFixed(2)}%`}
+                        </text>
+                        <text
+                          x={12}
+                          y={(graphChartData.paddingTop + (graphChartData.height - graphChartData.paddingBottom)) / 2 + 4}
+                          fontSize="14"
+                          fill="#6c757d"
+                        >
+                          {`${graphChartData.midChangePercent.toFixed(2)}%`}
+                        </text>
+                        <text x={12} y={graphChartData.height - graphChartData.paddingBottom + 4} fontSize="14" fill="#6c757d">
+                          {`${graphChartData.minChangePercent.toFixed(2)}%`}
+                        </text>
+                        <polyline
+                          fill="none"
+                          stroke="#0d6efd"
+                          strokeWidth="3"
+                          points={graphChartData.polylinePoints}
+                        />
+                        {graphChartData.points.map((point) => (
+                          <circle
+                            key={`${point.measureDate}-${point.x}`}
+                            cx={point.x}
+                            cy={point.y}
+                            r="5"
+                            fill="#0d6efd"
+                            onMouseEnter={() => setHoveredGraphPoint(point)}
+                            onMouseLeave={() => setHoveredGraphPoint(null)}
+                            onTouchStart={(event) => {
+                              event.preventDefault();
+                              setHoveredGraphPoint(point);
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setHoveredGraphPoint((prev) => {
+                                if (!prev) return point;
+                                return prev.measureDate === point.measureDate && prev.x === point.x ? null : point;
+                              });
+                            }}
+                          />
+                        ))}
+                        {hoveredGraphPoint && (
+                          <g style={{ pointerEvents: 'none' }}>
+                            <rect
+                              x={Math.min(Math.max(hoveredGraphPoint.x - 90, graphChartData.paddingLeft), graphChartData.width - 190)}
+                              y={Math.max(hoveredGraphPoint.y - 58, graphChartData.paddingTop)}
+                              width="180"
+                              height="46"
+                              rx="6"
+                              fill="#212529"
+                              opacity="0.9"
+                            />
+                            <text
+                              x={Math.min(Math.max(hoveredGraphPoint.x, graphChartData.paddingLeft + 90), graphChartData.width - 100)}
+                              y={Math.max(hoveredGraphPoint.y - 38, graphChartData.paddingTop + 16)}
+                              textAnchor="middle"
+                              fontSize="12"
+                              fill="#ffffff"
+                            >
+                              {hoveredGraphPoint.timeLabel}
+                            </text>
+                            <text
+                              x={Math.min(Math.max(hoveredGraphPoint.x, graphChartData.paddingLeft + 90), graphChartData.width - 100)}
+                              y={Math.max(hoveredGraphPoint.y - 20, graphChartData.paddingTop + 34)}
+                              textAnchor="middle"
+                              fontSize="12"
+                              fill="#ffffff"
+                            >
+                              {hoveredGraphPoint.isBuyBaseline
+                                ? 'Buy baseline: 0.00%'
+                                : `Change: ${hoveredGraphPoint.changePercent.toFixed(2)}%`}
+                            </text>
+                          </g>
+                        )}
+                      </svg>
+                    </div>
+                    <div className="d-flex justify-content-between small text-muted mt-2">
+                      <span>{graphChartData.firstDate}</span>
+                      <span>{graphChartData.lastDate}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -75,6 +75,33 @@ const createMockApi = () => {
       return jsonResponse(200, stocks.filter((stock) => linkedIds.includes(stock.id)));
     }
 
+    const strategyAverageMeasurementsMatch = path.match(/^\/api\/strategies\/(\d+)\/measurements\/average-change$/);
+    if (strategyAverageMeasurementsMatch && method === 'GET') {
+      const strategyId = Number(strategyAverageMeasurementsMatch[1]);
+      if (!strategies.some((strategy) => strategy.id === strategyId)) {
+        return jsonResponse(404, { error: 'Strategy not found' });
+      }
+
+      return jsonResponse(200, [
+        {
+          id: 1,
+          strategyId,
+          measureDate: '2026-02-10',
+          averageChangePercent: -1.1,
+          stockCount: 1,
+          createdAt: '2026-02-10T12:00:00.000Z'
+        },
+        {
+          id: 2,
+          strategyId,
+          measureDate: '2026-02-11',
+          averageChangePercent: 2.9,
+          stockCount: 1,
+          createdAt: '2026-02-11T12:00:00.000Z'
+        }
+      ]);
+    }
+
     if (strategyStocksMatch && method === 'POST') {
       const strategyId = Number(strategyStocksMatch[1]);
       const stock = { id: nextStockId++, ...body };
@@ -96,6 +123,26 @@ const createMockApi = () => {
     }
 
     const stockMatch = path.match(/^\/api\/stocks\/(\d+)$/);
+    const stockMeasurementsMatch = path.match(/^\/api\/stocks\/(\d+)\/measurements$/);
+
+    if (stockMeasurementsMatch && method === 'GET') {
+      const id = Number(stockMeasurementsMatch[1]);
+      const existing = stocks.find((stock) => stock.id === id);
+      if (!existing) return jsonResponse(404, { error: 'Stock not found' });
+
+      return jsonResponse(200, [
+        {
+          id: 1,
+          stockId: id,
+          measurePrice: existing.measurePrice,
+          measureDate: existing.measureDate,
+          changePercent: existing.changePercent,
+          source: 'yahoo',
+          createdAt: '2026-02-11T12:00:00.000Z'
+        }
+      ]);
+    }
+
     if (stockMatch && method === 'PUT') {
       const id = Number(stockMatch[1]);
       const existing = stocks.find((stock) => stock.id === id);
@@ -283,5 +330,131 @@ describe('App routed flows', () => {
 
     expect(companyInput).toHaveValue('Updated Multi Char Name');
     expect(companyInput).toHaveFocus();
+  });
+
+  test('opens and closes stock graph popup from graph button', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await loginAsDefaultUser(user);
+    await waitFor(() => expect(screen.getByTestId('show-stock-graph-1-1')).toBeInTheDocument());
+
+    await clickWithAct(user, screen.getByTestId('show-stock-graph-1-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('stock-graph-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('stock-growth-graph')).toBeInTheDocument();
+    });
+
+    await clickWithAct(user, screen.getByTestId('close-stock-graph-modal'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('stock-graph-modal')).not.toBeInTheDocument();
+    });
+  });
+
+  test('opens and closes strategy average graph popup from average row action', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await loginAsDefaultUser(user);
+    await waitFor(() => expect(screen.getByTestId('show-strategy-average-graph-1')).toBeInTheDocument());
+
+    await clickWithAct(user, screen.getByTestId('show-strategy-average-graph-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('stock-graph-modal')).toBeInTheDocument();
+      expect(screen.getByText('Average growth over time')).toBeInTheDocument();
+      expect(screen.getByTestId('stock-growth-graph')).toBeInTheDocument();
+    });
+
+    await clickWithAct(user, screen.getByTestId('close-stock-graph-modal'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('stock-graph-modal')).not.toBeInTheDocument();
+    });
+  });
+
+  test('shows average change percent row for each strategy table', async () => {
+    const user = userEvent.setup();
+    global.fetch = jest.fn(async (url, options = {}) => {
+      const path = typeof url === 'string' ? url : url.toString();
+      const method = (options.method || 'GET').toUpperCase();
+
+      if (path === '/api/strategies' && method === 'GET') {
+        return jsonResponse(200, [
+          { id: 1, strategy: 'Momentum picks' },
+          { id: 2, strategy: 'Income picks' }
+        ]);
+      }
+
+      const strategyStocksMatch = path.match(/^\/api\/strategies\/(\d+)\/stocks$/);
+      if (strategyStocksMatch && method === 'GET') {
+        const strategyId = Number(strategyStocksMatch[1]);
+        if (strategyId === 1) {
+          return jsonResponse(200, [
+            {
+              id: 11,
+              sector: 'Technology',
+              company: 'Alpha',
+              ticker: 'ALP',
+              price: 100,
+              criteria: 'Momentum',
+              buyPrice: 95,
+              buyDate: '2026-02-10',
+              measurePrice: 102,
+              measureDate: '2026-02-12',
+              changePercent: 2
+            },
+            {
+              id: 12,
+              sector: 'Utilities',
+              company: 'Beta',
+              ticker: 'BET',
+              price: 50,
+              criteria: 'Value',
+              buyPrice: 48,
+              buyDate: '2026-02-10',
+              measurePrice: 49,
+              measureDate: '2026-02-12',
+              changePercent: 'n/a'
+            },
+            {
+              id: 13,
+              sector: 'Financials',
+              company: 'Gamma',
+              ticker: 'GAM',
+              price: 75,
+              criteria: 'Value',
+              buyPrice: 70,
+              buyDate: '2026-02-10',
+              measurePrice: 78,
+              measureDate: '2026-02-12',
+              changePercent: 4
+            }
+          ]);
+        }
+
+        return jsonResponse(200, []);
+      }
+
+      if (path === '/api/stocks' && method === 'GET') {
+        return jsonResponse(200, []);
+      }
+
+      return jsonResponse(500, { error: `Unhandled route: ${method} ${path}` });
+    });
+
+    render(<App />);
+
+    await loginAsDefaultUser(user);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('strategy-average-row-1')).toBeInTheDocument();
+      expect(screen.getByTestId('strategy-average-row-2')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('strategy-average-change-percent-1')).toHaveTextContent('3.00');
+    expect(screen.getByTestId('strategy-average-change-percent-2')).toHaveTextContent('—');
   });
 });

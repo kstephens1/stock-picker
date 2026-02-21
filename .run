@@ -2,3 +2,6 @@ git add .
 git commit -m "Your descriptive commit message"
 git push origin main
 
+// pull request
+gh pr create --base main --head login --title "Merge login into main" --body "Ready for review."
+

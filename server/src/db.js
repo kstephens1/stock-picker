@@ -44,6 +44,41 @@ const initDb = () => {
         if (err) return reject(err);
       });
 
+      db.run(`CREATE TABLE IF NOT EXISTS stock_measurements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        stock_id INTEGER NOT NULL,
+        measurePrice REAL,
+        measureDate TEXT,
+        changePercent REAL,
+        source TEXT,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (stock_id) REFERENCES stocks (id)
+      )`, (err) => {
+        if (err) return reject(err);
+      });
+
+      db.run(`CREATE TABLE IF NOT EXISTS average_change_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        measureDate TEXT NOT NULL,
+        averageChangePercent REAL NOT NULL,
+        stockCount INTEGER NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+      )`, (err) => {
+        if (err) return reject(err);
+      });
+
+      db.run(`CREATE TABLE IF NOT EXISTS strategy_average_change_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        strategy_id INTEGER NOT NULL,
+        measureDate TEXT NOT NULL,
+        averageChangePercent REAL NOT NULL,
+        stockCount INTEGER NOT NULL,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (strategy_id) REFERENCES strategies (id)
+      )`, (err) => {
+        if (err) return reject(err);
+      });
+
       // Check if data exists
       db.get("SELECT COUNT(*) as count FROM stocks", (err, row) => {
         if (err) return reject(err);

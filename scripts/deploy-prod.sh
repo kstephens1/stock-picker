@@ -112,7 +112,7 @@ echo "Setting VM permissions and restarting service"
 gcloud compute ssh "${SSH_TARGET}" \
   --zone "${GCP_ZONE}" \
   --project "${GCP_PROJECT_ID}" \
-  --command "sudo chmod 640 /etc/stockpicker/backend.env && sudo systemctl daemon-reload && sudo systemctl enable '${VM_SERVICE_NAME}' && sudo systemctl restart '${VM_SERVICE_NAME}'"
+  --command "sudo bash -lc 'chmod 640 /etc/stockpicker/backend.env && if [[ -f "${VM_DB_PATH}" ]]; then cp "${VM_DB_PATH}" "${VM_DB_PATH}.bak.$(date +%Y%m%d-%H%M%S)" && ls -1t "${VM_DB_PATH}.bak."* 2>/dev/null | tail -n +8 | xargs -r rm -f; fi && systemctl daemon-reload && systemctl enable "${VM_SERVICE_NAME}" && systemctl restart "${VM_SERVICE_NAME}"'"
 
 echo "Verifying backend service on VM"
 gcloud compute ssh "${SSH_TARGET}" \

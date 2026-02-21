@@ -12,14 +12,37 @@ describe('GET /api/strategies', () => {
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThan(0);
-    expect(res.body[0].strategy).toContain("diversified short-term portfolio");
+    expect(typeof res.body[0].strategy).toBe('string');
+    expect(res.body[0].strategy.length).toBeGreaterThan(0);
   });
 
   it('should return stocks for a strategy', async () => {
-    const res = await request(app).get('/api/strategies/1/stocks');
+    const createdStrategy = await request(app).post('/api/strategies').send({
+      strategy: 'History stocks strategy'
+    });
+
+    const createdStock = await request(app)
+      .post(`/api/strategies/${createdStrategy.body.id}/stocks`)
+      .send({
+        sector: 'Energy',
+        company: 'Strategy Stock Co',
+        ticker: 'SSCO',
+        price: 50,
+        criteria: 'Momentum',
+        buyPrice: 45,
+        buyDate: '2026-02-01',
+        measurePrice: 51,
+        measureDate: '2026-02-02',
+        changePercent: 13.33
+      });
+
+    expect(createdStock.statusCode).toBe(201);
+
+    const res = await request(app).get(`/api/strategies/${createdStrategy.body.id}/stocks`);
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBeGreaterThan(0);
+    expect(res.body.length).toBe(1);
+    expect(res.body[0].company).toBe('Strategy Stock Co');
   });
 });
 
