@@ -1,0 +1,92 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm run install:all
+
+      - name: Run tests
+        run: npm run test:unit
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build client with production API URL
+        run: cd client && npm run build
+        env:
+          REACT_APP_API_BASE_URL: ${{ secrets.BACKEND_URL }}
+          CI: true
+
+      - name: Deploy to Firebase Hosting
+        run: |
+          npm install -g firebase-cli
+          firebase deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }} --project ${{ secrets.FIREBASE_PROJECT_ID }}
+
+      - name: Deploy backend to Compute Engine
+        run: |
+          # Copy files to VM
+          gcloud compute scp --recurse server ${{ secrets.GCE_INSTANCE }}:/tmp/stockpicker-update \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --tunnel-through-iap
+
+          # Install dependencies and restart service
+          gcloud compute ssh ${{ secrets.GCE_INSTANCE }} \
+            --zone=${{ secrets.GCP_ZONE }} \
+            --tunnel-through-iap \
+            --command="cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart ${{ secrets.VM_SERVICE_NAME }}"
+
+      - name: Run smoke tests against production
+        run: npm run test:e2e:prod
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.FRONTEND_URL }}
+
+      - name: Notify deployment success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.ref,
+              environment: 'production',
+              description: 'Deployment successful',
+              auto_merge: false,
+              required_contexts: []
+            });
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-report
+          path: e2e/playwright-report/
+          retention-days: 30

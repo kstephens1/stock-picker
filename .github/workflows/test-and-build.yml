@@ -1,0 +1,85 @@
+name: Test & Build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    # Allow Copilot to report job status
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm run install:all
+
+      - name: Run unit tests
+        id: unit-tests
+        run: npm run test:unit
+        continue-on-error: true
+
+      - name: Build client
+        id: build
+        run: cd client && npm run build
+        continue-on-error: true
+        env:
+          CI: true
+
+      - name: Run E2E tests
+        id: e2e-tests
+        run: npm run test:e2e
+        continue-on-error: true
+
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 30
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const unitTestsPassed = ${{ steps.unit-tests.outcome == 'success' }};
+            const buildPassed = ${{ steps.build.outcome == 'success' }};
+            const e2eTestsPassed = ${{ steps.e2e-tests.outcome == 'success' }};
+            
+            let comment = '## 📊 Build Status\n\n';
+            comment += unitTestsPassed ? '✅ Unit Tests' : '❌ Unit Tests';
+            comment += unitTestsPassed ? ' **PASSED**\n' : ' **FAILED**\n';
+            comment += buildPassed ? '✅ Build' : '❌ Build';
+            comment += buildPassed ? ' **PASSED**\n' : ' **FAILED**\n';
+            comment += e2eTestsPassed ? '✅ E2E Tests' : '❌ E2E Tests';
+            comment += e2eTestsPassed ? ' **PASSED**\n' : ' **FAILED**\n';
+            
+            comment += '\n[View E2E Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Fail if tests failed
+        if: steps.unit-tests.outcome != 'success' || steps.build.outcome != 'success' || steps.e2e-tests.outcome != 'success'
+        run: exit 1

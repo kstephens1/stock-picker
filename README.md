@@ -2,6 +2,27 @@
 
 A simple full-stack application featuring a React frontend, a Node.js microservice backend, and automated testing with Jest and Playwright.
 
+## 🚀 Mobile-First Development with GitHub Copilot
+
+This project is configured for a **complete mobile-first development lifecycle**:
+
+- 📱 **Create issues on GitHub Mobile App** → include `@copilot`
+- 🧠 **Open in Copilot Workspace** → AI proposes technical plan
+- ✏️ **Edit plan on mobile** before code is written
+- 🤖 **Autonomous implementation** → Copilot writes code, runs tests, opens PR
+- 👁️ **Review on mobile** using native GitHub App PR viewer
+- 💬 **Use Copilot Chat on mobile** to ask questions about changes
+- 🚀 **Automatic deployment** on merge with live log streaming
+- 📊 **Real-time build logs** viewable on mobile
+
+**Get Started:**
+- 📖 Read [QUICK-REFERENCE.md](QUICK-REFERENCE.md) for fast walkthrough
+- 📚 Full guide: [MOBILE-FIRST-DEV.md](MOBILE-FIRST-DEV.md)
+- 🔐 Setup: [GITHUB-SECRETS-SETUP.md](GITHUB-SECRETS-SETUP.md)
+- 💡 Copilot guidance: [.copilot-instructions.md](.copilot-instructions.md)
+
+---
+
 ## Project Structure
 
 - **root**: Orchestrates global scripts and dependencies.
