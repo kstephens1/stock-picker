@@ -23,6 +23,10 @@ Issue created & assigned to @copilot
   ✅ Generates step-by-step instructions
 ```
 
+If you do not see the button in the app:
+- Assign `copilot-swe-agent` (or `copilot`) to the issue
+- Open the issue in mobile browser and switch to desktop site mode
+
 ### Step 3: Edit Plan (Mobile)
 ```
 📱 Review Copilot's proposed plan
@@ -89,7 +93,8 @@ Approve & Submit
 - [ ] **Local Setup**
   - [ ] `.env` file created (root)
   - [ ] `server/.env` created
-  - [ ] `client/.env` created
+  - [ ] `client/.env.development` created
+  - [ ] `client/.env.test` created
   - [ ] `npm run install:all` completed
   - [ ] `npm run test:unit` passes
 

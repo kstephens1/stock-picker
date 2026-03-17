@@ -54,9 +54,14 @@ Your mobile-first development system is now configured! Follow this checklist to
   LOG_LEVEL=debug
   EOF
   
-  # Client .env
-  cat > client/.env << 'EOF'
+  # Client .env.development
+  cat > client/.env.development << 'EOF'
   REACT_APP_API_BASE_URL=http://localhost:4000
+  EOF
+
+  # Client .env.test
+  cat > client/.env.test << 'EOF'
+  REACT_APP_API_BASE_URL=
   EOF
   ```
 
@@ -123,8 +128,9 @@ Now test the complete workflow!
 
 - [ ] **Tap ellipsis (...)** on the issue
 - [ ] **Find "Open in Workspace"**
-  - If not visible: Issue might need assigned to @copilot manually
-  - Long-press issue → Assignees → Add @copilot
+  - If not visible in the app: assign `copilot-swe-agent` (or `copilot`) manually
+  - Long-press issue → Assignees → Type `copilot-swe-agent` first, then `copilot` as fallback
+  - If still missing: open the issue in your mobile browser and enable desktop site mode
   
 - [ ] **Tap "Open in Workspace"**
 - [ ] **Wait for Copilot to analyze** (15-30 seconds)
@@ -192,8 +198,10 @@ You just:
 ### If "Open in Workspace" didn't appear:
 - [ ] Verify issue has `@copilot` in description
 - [ ] Wait 2 minutes for GitHub to process
-- [ ] Manually assign to @copilot:
-  - Long-press issue → Assignees → Type "copilot" → Select @copilot
+- [ ] Manually assign a Copilot agent:
+  - Long-press issue → Assignees → Type `copilot-swe-agent` → Select if available
+  - If unavailable, try `copilot`
+- [ ] Open the same issue in mobile browser and switch to desktop site mode
 - [ ] Refresh and try again
 
 ### If tests failed in Actions:

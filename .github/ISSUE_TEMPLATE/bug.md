@@ -13,7 +13,8 @@ assignees: ''
 **To enable Copilot to autonomously fix this bug:**
 - Include `@copilot` below
 - Describe expected vs actual behavior
-- Then tap "Open in Workspace" from GitHub Mobile App
+- Assign `copilot-swe-agent` (or `copilot`) as issue assignee
+- Then tap "Open in Workspace" from GitHub Mobile App (or use mobile browser desktop mode)
 
 @copilot
 

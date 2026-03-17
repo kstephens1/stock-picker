@@ -20,18 +20,33 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.addAssignees({
+            const candidates = ['copilot-swe-agent', 'copilot'];
+            let assigned = null;
+
+            for (const login of candidates) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  assignees: [login]
+                });
+                assigned = login;
+                break;
+              } catch (error) {
+                console.log(`Failed assigning ${login}: ${error.message}`);
+              }
+            }
+
+            const guidance = assigned
+              ? `This issue has been assigned to @${assigned} for autonomous implementation.`
+              : 'Automatic assignment could not find an available Copilot assignee in this repository. Please assign your Copilot agent manually from the assignees list.';
+
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              assignees: ['copilot']
-            });
-            
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: '🤖 **Copilot Assignment Active**\n\nThis issue has been assigned to @copilot for autonomous implementation. Open this issue in **GitHub Copilot Workspace** to:\n\n1. Review the proposed technical plan\n2. Edit the plan\'s natural language steps\n3. Generate and implement the code\n4. Automatically run tests\n5. Open a Pull Request\n\n**Mobile First:** Tap "Open in Workspace" from the GitHub Mobile App to begin.'
+              body: `🤖 **Copilot Assignment Active**\n\n${guidance}\n\nOpen this issue in **GitHub Copilot Workspace** to:\n\n1. Review the proposed technical plan\n2. Edit the plan's natural language steps\n3. Generate and implement the code\n4. Automatically run tests\n5. Open a Pull Request\n\n**If you do not see "Open in Workspace" in the mobile app:**\n- Open the issue URL in your mobile browser\n- Switch to desktop site mode\n- Start Workspace from the web issue page`
             });
 
       - name: Assign Copilot on PR
@@ -39,9 +54,17 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              assignees: ['copilot']
-            });
+            const candidates = ['copilot-swe-agent', 'copilot'];
+            for (const login of candidates) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  assignees: [login]
+                });
+                break;
+              } catch (error) {
+                console.log(`Failed assigning ${login}: ${error.message}`);
+              }
+            }

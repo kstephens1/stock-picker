@@ -13,7 +13,8 @@ assignees: ''
 **To enable Copilot to autonomously implement this feature:**
 - Add `@copilot` below
 - Include specific requirements
-- Then tap "Open in Workspace" from GitHub Mobile App
+- Assign `copilot-swe-agent` (or `copilot`) as issue assignee
+- Then tap "Open in Workspace" from GitHub Mobile App (or use mobile browser desktop mode)
 
 @copilot
 

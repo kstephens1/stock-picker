@@ -104,12 +104,21 @@ DATABASE_PATH=./stocks.db
 LOG_LEVEL=debug
 ```
 
-### Client `.env` (Frontend Configuration)
+### Client `.env.development` (Frontend Development Configuration)
 
-Create `/Users/keithstephens/src/StockPicker/client/.env`:
+Create `/Users/keithstephens/src/StockPicker/client/.env.development`:
 ```bash
 REACT_APP_API_BASE_URL=http://localhost:4000
 ```
+
+### Client `.env.test` (Frontend Test Configuration)
+
+Create `/Users/keithstephens/src/StockPicker/client/.env.test`:
+```bash
+REACT_APP_API_BASE_URL=
+```
+
+This keeps Jest and React Testing Library using relative `/api/...` URLs so the existing mocked tests still pass.
 
 ---
 

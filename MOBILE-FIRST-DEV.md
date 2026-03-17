@@ -28,6 +28,11 @@ Once the issue is created and @copilot is assigned:
   - 🧠 Propose a technical implementation plan
   - 📋 Generate step-by-step natural language instructions
 
+If the mobile app does not show **Open in Copilot Workspace**:
+- Assign `copilot-swe-agent` (or `copilot`) in issue assignees
+- Open the same issue URL in your mobile browser
+- Enable desktop site mode and start Workspace from the web issue page
+
 ### 3. Review & Edit Plan
 **Before any code is written:**
 
@@ -196,9 +201,10 @@ firebase login:ci
 ## 🛠️ Troubleshooting
 
 ### "Open in Workspace" not appearing?
-- Ensure issue is assigned to @copilot
+- Ensure issue is assigned to `copilot-swe-agent` or `copilot`
 - Issue must mention specific work (@copilot in description)
 - Workspace is only available for issues, not PRs
+- Try mobile browser in desktop site mode if the app UI does not expose the button
 
 ### Build failures in Actions?
 1. Tap the **failed workflow** in GitHub Mobile
