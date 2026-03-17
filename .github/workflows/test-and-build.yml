@@ -30,7 +30,7 @@ jobs:
         run: npm run install:all
 
       - name: Run unit tests
-        id: unit-tests
+        id: unit_tests
         run: npm run test:unit
         continue-on-error: true
 
@@ -42,7 +42,7 @@ jobs:
           CI: true
 
       - name: Run E2E tests
-        id: e2e-tests
+        id: e2e_tests
         run: npm run test:e2e
         continue-on-error: true
 
@@ -59,9 +59,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const unitTestsPassed = ${{ steps.unit-tests.outcome == 'success' }};
+            const unitTestsPassed = ${{ steps.unit_tests.outcome == 'success' }};
             const buildPassed = ${{ steps.build.outcome == 'success' }};
-            const e2eTestsPassed = ${{ steps.e2e-tests.outcome == 'success' }};
+            const e2eTestsPassed = ${{ steps.e2e_tests.outcome == 'success' }};
             
             let comment = '## 📊 Build Status\n\n';
             comment += unitTestsPassed ? '✅ Unit Tests' : '❌ Unit Tests';
@@ -81,5 +81,5 @@ jobs:
             });
 
       - name: Fail if tests failed
-        if: steps.unit-tests.outcome != 'success' || steps.build.outcome != 'success' || steps.e2e-tests.outcome != 'success'
+        if: steps.unit_tests.outcome != 'success' || steps.build.outcome != 'success' || steps.e2e_tests.outcome != 'success'
         run: exit 1
