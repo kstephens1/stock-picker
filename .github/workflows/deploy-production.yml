@@ -53,11 +53,13 @@ jobs:
           # Copy files to VM
           gcloud compute scp --recurse server ${{ secrets.GCE_INSTANCE }}:/tmp/stockpicker-update \
             --zone=${{ secrets.GCP_ZONE }} \
+            --project=clawdbot-ks-2026 \
             --tunnel-through-iap
 
           # Install dependencies and restart service
           gcloud compute ssh ${{ secrets.GCE_INSTANCE }} \
             --zone=${{ secrets.GCP_ZONE }} \
+            --project=clawdbot-ks-2026 \
             --tunnel-through-iap \
             --command="cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart ${{ secrets.VM_SERVICE_NAME }}"
 
