@@ -48,18 +48,11 @@ jobs:
 
       - name: Deploy backend to Compute Engine
         run: |
-          # Copy files to VM
-          gcloud compute scp --recurse server ${{ secrets.GCE_INSTANCE }}:/tmp/stockpicker-update \
-            --zone=${{ secrets.GCP_ZONE }} \
-            --project=clawdbot-ks-2026 \
-            --tunnel-through-iap
-
-          # Install dependencies and restart service
-          gcloud compute ssh ${{ secrets.GCE_INSTANCE }} \
-            --zone=${{ secrets.GCP_ZONE }} \
-            --project=clawdbot-ks-2026 \
-            --tunnel-through-iap \
-            --command="cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart ${{ secrets.VM_SERVICE_NAME }}"
+          echo "${{ secrets.VM_DEPLOY_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/ kstephens1_gmail_com@35.211.52.83:/tmp/stockpicker-update
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no kstephens1_gmail_com@35.211.52.83 "cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart stock-picker"
+          rm /tmp/deploy_key
 
       - name: Run smoke tests against production
         run: npm run test:e2e:prod
