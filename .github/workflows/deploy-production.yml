@@ -61,9 +61,10 @@ jobs:
           rm /tmp/deploy_key
 
       - name: Run smoke tests against production
-        run: npm run test:e2e:prod
+        run: npm run smoke:prod
         env:
-          PLAYWRIGHT_BASE_URL: ${{ secrets.FRONTEND_URL }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
 
       - name: Notify deployment success
         if: success()
