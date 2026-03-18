@@ -16,11 +16,29 @@ done
 BACKEND_URL="${BACKEND_URL%/}"
 FRONTEND_URL="${FRONTEND_URL%/}"
 
+wait_for_url() {
+  local url="$1"
+  local label="$2"
+  local attempts="${3:-30}"
+  local sleep_seconds="${4:-2}"
+
+  for ((i=1; i<=attempts; i++)); do
+    if curl -fsS "${url}" >/dev/null; then
+      return 0
+    fi
+    echo "${label} not ready yet (attempt ${i}/${attempts})"
+    sleep "${sleep_seconds}"
+  done
+
+  echo "Timed out waiting for ${label}: ${url}"
+  return 1
+}
+
 echo "Checking backend health"
-curl -fsS "${BACKEND_URL}/api/hello" >/dev/null
+wait_for_url "${BACKEND_URL}/api/hello" "backend health endpoint"
 
 echo "Checking backend read endpoint"
-curl -fsS "${BACKEND_URL}/api/strategies" >/dev/null
+wait_for_url "${BACKEND_URL}/api/strategies" "backend strategies endpoint"
 
 echo "Checking frontend routes"
 curl -fsS "${FRONTEND_URL}/" >/dev/null
