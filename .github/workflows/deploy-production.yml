@@ -48,10 +48,10 @@ jobs:
 
       - name: Deploy backend to Compute Engine
         run: |
-          echo "${{ secrets.VM_DEPLOY_KEY }}" > /tmp/deploy_key
+          echo "${{ secrets.VM_SSH_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/ kstephens1_gmail_com@35.211.52.83:/tmp/stockpicker-update
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no kstephens1_gmail_com@35.211.52.83 "cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart stock-picker"
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/ ${{ secrets.VM_SSH_USER }}@${{ secrets.VM_HOST }}:/tmp/stockpicker-update
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VM_SSH_USER }}@${{ secrets.VM_HOST }} "cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart ${{ secrets.VM_SERVICE_NAME }}"
           rm /tmp/deploy_key
 
       - name: Run smoke tests against production
