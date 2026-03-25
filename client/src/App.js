@@ -289,6 +289,7 @@ const LoginPage = ({ username, password, loginError, onUsernameChange, onPasswor
 );
 
 function AppContent() {
+  const releaseNumber = process.env.REACT_APP_VERSION || null;
   const navigate = useNavigate();
   const location = useLocation();
   const [strategies, setStrategies] = useState([]);
@@ -1002,7 +1003,7 @@ function AppContent() {
 
   return (
     <div className="container py-4">
-      <h1 className="mb-2">StockPicker</h1>
+      <h1 className="mb-2" data-testid="app-title">StockPicker{releaseNumber ? ` v${releaseNumber}` : ''}</h1>
       {isAuthenticated && (
         <div className="d-flex gap-2 mb-4">
           <Link className="btn btn-outline-secondary btn-sm" to="/">Home</Link>

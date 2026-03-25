@@ -205,6 +205,22 @@ describe('App routed flows', () => {
     jest.restoreAllMocks();
   });
 
+  test('renders header title with release number when REACT_APP_VERSION is set', () => {
+    const originalVersion = process.env.REACT_APP_VERSION;
+    process.env.REACT_APP_VERSION = '2.3.1';
+    render(<App />);
+    expect(screen.getByTestId('app-title')).toHaveTextContent('StockPicker v2.3.1');
+    process.env.REACT_APP_VERSION = originalVersion;
+  });
+
+  test('renders header title without release number when REACT_APP_VERSION is not set', () => {
+    const originalVersion = process.env.REACT_APP_VERSION;
+    delete process.env.REACT_APP_VERSION;
+    render(<App />);
+    expect(screen.getByTestId('app-title').textContent).toBe('StockPicker');
+    process.env.REACT_APP_VERSION = originalVersion;
+  });
+
   test('requires login before loading protected pages', async () => {
     const user = userEvent.setup();
     render(<App />);
