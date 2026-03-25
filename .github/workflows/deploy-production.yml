@@ -65,7 +65,8 @@ jobs:
           scp $SSH_OPTS server/package.json server/package-lock.json $REMOTE:/tmp/stockpicker-update/
           scp $SSH_OPTS -r server/src/ $REMOTE:/tmp/stockpicker-update/src/
           ssh $SSH_OPTS $REMOTE "
-            sudo rsync -a --delete /tmp/stockpicker-update/src/ $DEPLOY_DIR/src/ &&
+            sudo rm -rf $DEPLOY_DIR/src &&
+            sudo cp -r /tmp/stockpicker-update/src/ $DEPLOY_DIR/src/ &&
             sudo cp /tmp/stockpicker-update/package.json /tmp/stockpicker-update/package-lock.json $DEPLOY_DIR/ &&
             sudo chown -R stockpicker:stockpicker $DEPLOY_DIR &&
             cd $DEPLOY_DIR && sudo -u stockpicker npm install --production &&
