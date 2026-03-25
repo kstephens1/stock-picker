@@ -458,3 +458,30 @@ describe('App routed flows', () => {
     expect(screen.getByTestId('strategy-average-change-percent-2')).toHaveTextContent('—');
   });
 });
+
+describe('App header title', () => {
+  const originalBuildNumber = process.env.REACT_APP_BUILD_NUMBER;
+
+  beforeEach(() => {
+    window.history.pushState({}, '', '/login');
+    window.localStorage.clear();
+    global.fetch = createMockApi();
+  });
+
+  afterEach(() => {
+    process.env.REACT_APP_BUILD_NUMBER = originalBuildNumber;
+    jest.restoreAllMocks();
+  });
+
+  test('renders title as "StockPicker v{number}" when build number is set', () => {
+    process.env.REACT_APP_BUILD_NUMBER = '42';
+    render(<App />);
+    expect(screen.getByTestId('app-title')).toHaveTextContent('StockPicker v42');
+  });
+
+  test('renders title as "StockPicker" when build number is not set', () => {
+    delete process.env.REACT_APP_BUILD_NUMBER;
+    render(<App />);
+    expect(screen.getByTestId('app-title')).toHaveTextContent('StockPicker');
+  });
+});

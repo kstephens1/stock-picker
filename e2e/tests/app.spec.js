@@ -15,7 +15,7 @@ test.describe('StockPicker App', () => {
   test('shows strategy tables on home page', async ({ page }) => {
     await page.goto('/');
     await ensureAuthenticated(page);
-    await expect(page.locator('h1')).toHaveText('StockPicker');
+    await expect(page.locator('h1')).toContainText('StockPicker');
     await expect(page.getByRole('button', { name: 'Add New Stock' }).first()).toBeVisible();
     await expect(page.locator('[data-testid^="strategy-average-row-"]').first()).toBeVisible();
   });
