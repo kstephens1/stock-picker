@@ -1002,7 +1002,9 @@ function AppContent() {
 
   return (
     <div className="container py-4">
-      <h1 className="mb-2">StockPicker</h1>
+      <h1 className="mb-2" data-testid="app-title">
+        {`StockPicker${process.env.REACT_APP_BUILD_NUMBER ? ` v${process.env.REACT_APP_BUILD_NUMBER}` : ''}`}
+      </h1>
       {isAuthenticated && (
         <div className="d-flex gap-2 mb-4">
           <Link className="btn btn-outline-secondary btn-sm" to="/">Home</Link>

@@ -46,6 +46,7 @@ jobs:
         run: cd client && npm run build
         env:
           REACT_APP_API_BASE_URL: ${{ secrets.BACKEND_URL }}
+          REACT_APP_BUILD_NUMBER: ${{ github.run_number }}
           CI: true
 
       - name: Deploy to Firebase Hosting
