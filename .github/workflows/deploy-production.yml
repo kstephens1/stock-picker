@@ -57,8 +57,20 @@ jobs:
         run: |
           echo "${{ secrets.VM_SSH_KEY }}" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
-          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r server/ ${{ secrets.VM_SSH_USER }}@${{ secrets.VM_HOST }}:/tmp/stockpicker-update
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.VM_SSH_USER }}@${{ secrets.VM_HOST }} "cd /tmp/stockpicker-update && npm install --production && sudo systemctl restart ${{ secrets.VM_SERVICE_NAME }}"
+          SSH_OPTS="-i /tmp/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30"
+          REMOTE="${{ secrets.VM_SSH_USER }}@${{ secrets.VM_HOST }}"
+          DEPLOY_DIR="/opt/stockpicker/server"
+          # Stage files in /tmp, then move to production dir
+          ssh $SSH_OPTS $REMOTE "rm -rf /tmp/stockpicker-update && mkdir -p /tmp/stockpicker-update/src"
+          scp $SSH_OPTS server/package.json server/package-lock.json $REMOTE:/tmp/stockpicker-update/
+          scp $SSH_OPTS -r server/src/ $REMOTE:/tmp/stockpicker-update/src/
+          ssh $SSH_OPTS $REMOTE "
+            sudo rsync -a --delete /tmp/stockpicker-update/src/ $DEPLOY_DIR/src/ &&
+            sudo cp /tmp/stockpicker-update/package.json /tmp/stockpicker-update/package-lock.json $DEPLOY_DIR/ &&
+            sudo chown -R stockpicker:stockpicker $DEPLOY_DIR &&
+            cd $DEPLOY_DIR && sudo -u stockpicker npm install --production &&
+            sudo systemctl restart ${{ secrets.VM_SERVICE_NAME }}
+          "
           rm /tmp/deploy_key
 
       - name: Run smoke tests against production
